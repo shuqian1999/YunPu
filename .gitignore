@@ -1,0 +1,56 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+.python-version
+.python_env
+venv/
+ENV/
+.env
+.env.*
+*.sqlite3
+*.db
+*.db-journal
+
+# FastAPI / Backend
+/backend/personal_crm.db
+/backend/__pycache__/
+/backend/.pytest_cache/
+/backend/*.py[cod]
+/backend/.mypy_cache/
+
+# Node
+/frontend/node_modules/
+/frontend/npm-debug.log*
+/frontend/yarn-debug.log*
+/frontend/yarn-error.log*
+/frontend/package-lock.json
+/frontend/pnpm-lock.yaml
+/frontend/yarn.lock
+
+# Vite / Vue
+/frontend/dist/
+/frontend/.vite/
+/frontend/.env.local
+/frontend/.vitepress/
+/frontend/coverage/
+/frontend/.DS_Store
+
+# IDEs
+.vscode/
+.idea/
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
