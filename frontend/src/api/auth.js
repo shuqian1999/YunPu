@@ -1,9 +1,7 @@
-import axios from './axios'
+import request from '../utils/request'
 
 export const login = (credentials) => {
-  return axios.post('/auth/login', credentials)
-}
-
-export const register = (userData) => {
-  return axios.post('/auth/register', userData)
+  return request.post('/auth/login', credentials, {
+    headers: { 'Content-Type': 'application/x-www-form-urlencoded' }
+  })
 }

@@ -1,17 +1,12 @@
 import { createRouter, createWebHistory } from 'vue-router'
 import Login from '../views/user/Login.vue'
-import Register from '../views/user/Register.vue'
 
 const routes = [
   {
     path: '/login',
     name: 'Login',
-    component: Login
-  },
-  {
-    path: '/register',
-    name: 'Register',
-    component: Register
+    component: Login,
+    meta: { requiresAuth: false }
   },
   {
     path: '/',
@@ -22,6 +17,16 @@ const routes = [
 const router = createRouter({
   history: createWebHistory(),
   routes
+})
+
+router.beforeEach((to, from, next) => {
+  const isAuthenticated = localStorage.getItem('token') !== null
+  
+  if (to.meta.requiresAuth !== false && !isAuthenticated) {
+    next('/login')
+  } else {
+    next()
+  }
 })
 
 export default router
