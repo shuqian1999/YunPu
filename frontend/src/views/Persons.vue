@@ -52,14 +52,6 @@
         
         <div class="person-actions">
           <el-button
-            type="primary"
-            text
-            size="small"
-            @click.stop="handleEdit(person.id)"
-          >
-            编辑
-          </el-button>
-          <el-button
             type="danger"
             text
             size="small"

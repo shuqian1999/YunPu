@@ -2,32 +2,27 @@
   <el-dialog
     v-model="dialogVisible"
     :title="isEdit ? '编辑人物' : '添加人物'"
-    width="600px"
+    width="500px"
     @close="handleClose"
   >
     <el-form
       ref="formRef"
       :model="form"
       :rules="rules"
-      label-width="100px"
+      label-width="80px"
     >
-      <el-form-item label="姓氏" prop="last_name">
-        <el-input v-model="form.last_name" placeholder="请输入姓氏" />
+      <el-form-item label="称呼" prop="nickname">
+        <el-input v-model="form.nickname" placeholder="请输入称呼（必填）" />
       </el-form-item>
 
-      <el-form-item label="名字" prop="first_name">
-        <el-input v-model="form.first_name" placeholder="请输入名字" />
-      </el-form-item>
-
-      <el-form-item label="昵称" prop="nickname">
-        <el-input v-model="form.nickname" placeholder="请输入昵称" />
+      <el-form-item label="姓名" prop="name">
+        <el-input v-model="form.name" placeholder="请输入姓名（选填），第一个字默认为姓" />
       </el-form-item>
 
       <el-form-item label="性别" prop="gender">
         <el-radio-group v-model="form.gender">
-          <el-radio :label="1">男</el-radio>
-          <el-radio :label="2">女</el-radio>
-          <el-radio :label="0">未知</el-radio>
+          <el-radio label="male">男</el-radio>
+          <el-radio label="female">女</el-radio>
         </el-radio-group>
       </el-form-item>
 
@@ -39,31 +34,6 @@
           value-format="YYYY-MM-DD"
           style="width: 100%"
         />
-      </el-form-item>
-
-      <el-form-item label="国家" prop="country">
-        <el-select
-          v-model="form.country"
-          placeholder="请选择国家"
-          filterable
-          clearable
-          style="width: 100%"
-        >
-          <el-option
-            v-for="(info, code) in countries"
-            :key="code"
-            :label="`${info.flag} ${info.name}`"
-            :value="code"
-          />
-        </el-select>
-      </el-form-item>
-
-      <el-form-item label="家乡" prop="hometown">
-        <el-input v-model="form.hometown" placeholder="请输入家乡" />
-      </el-form-item>
-
-      <el-form-item label="居住地" prop="residence">
-        <el-input v-model="form.residence" placeholder="请输入居住地" />
       </el-form-item>
 
       <el-form-item label="标记为我自己">
@@ -84,7 +54,6 @@
 import { ref, computed, watch, onMounted } from 'vue'
 import { ElMessage } from 'element-plus'
 import { getPerson, createPerson, updatePerson } from '@/api/persons'
-import { getCountries } from '@/api/countries'
 
 const props = defineProps({
   visible: {
@@ -101,25 +70,17 @@ const emit = defineEmits(['update:visible', 'success'])
 
 const formRef = ref(null)
 const loading = ref(false)
-const countries = ref({})
 const form = ref({
-  first_name: '',
-  last_name: '',
   nickname: '',
-  gender: 0,
+  name: '',
+  gender: '',
   birth_date: '',
-  country: '',
-  hometown: '',
-  residence: '',
   is_me: false
 })
 
 const rules = {
-  first_name: [
-    { required: true, message: '请输入名字', trigger: 'blur' }
-  ],
-  last_name: [
-    { required: true, message: '请输入姓氏', trigger: 'blur' }
+  nickname: [
+    { required: true, message: '请输入称呼', trigger: 'blur' }
   ]
 }
 
@@ -130,28 +91,17 @@ const dialogVisible = computed({
 
 const isEdit = computed(() => props.personId !== null)
 
-const loadCountries = async () => {
-  try {
-    countries.value = await getCountries()
-  } catch (error) {
-    console.error('加载国家列表失败:', error)
-  }
-}
-
 const loadPerson = async () => {
   if (!props.personId) return
 
   try {
     const data = await getPerson(props.personId)
+    const genderMap = { 1: 'male', 2: 'female' }
     form.value = {
-      first_name: data.first_name || '',
-      last_name: data.last_name || '',
       nickname: data.nickname || '',
-      gender: data.gender || 0,
+      name: data.last_name ? data.last_name + data.first_name : '',
+      gender: data.gender ? genderMap[data.gender] : '',
       birth_date: data.birth_date || '',
-      country: data.country || '',
-      hometown: data.hometown || '',
-      residence: data.residence || '',
       is_me: data.is_me || false
     }
   } catch (error) {
@@ -165,12 +115,21 @@ const handleSubmit = async () => {
 
   loading.value = true
   try {
-    const data = { ...form.value }
-    Object.keys(data).forEach(key => {
-      if (data[key] === '') {
-        data[key] = null
-      }
-    })
+    const name = form.value.name || ''
+    const last_name = name.charAt(0) || ''
+    const first_name = name.slice(1) || ''
+    
+    const genderMap = { male: 1, female: 2 }
+    const genderValue = form.value.gender ? genderMap[form.value.gender] : null
+    
+    const data = {
+      nickname: form.value.nickname,
+      last_name: last_name,
+      first_name: first_name,
+      gender: genderValue,
+      birth_date: form.value.birth_date || null,
+      is_me: form.value.is_me
+    }
 
     if (isEdit.value) {
       await updatePerson(props.personId, data)
@@ -190,14 +149,10 @@ const handleSubmit = async () => {
 const handleClose = () => {
   formRef.value?.resetFields()
   form.value = {
-    first_name: '',
-    last_name: '',
     nickname: '',
-    gender: 0,
+    name: '',
+    gender: '',
     birth_date: '',
-    country: '',
-    hometown: '',
-    residence: '',
     is_me: false
   }
   dialogVisible.value = false
@@ -207,9 +162,5 @@ watch(() => props.visible, (val) => {
   if (val) {
     loadPerson()
   }
-})
-
-onMounted(() => {
-  loadCountries()
 })
 </script>

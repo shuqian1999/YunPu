@@ -263,6 +263,12 @@
         <el-button @click="submitFamily" type="primary">保存</el-button>
       </template>
     </el-dialog>
+
+    <PersonForm
+      v-model:visible="showEditPerson"
+      :person-id="personId"
+      @success="handleEditSuccess"
+    />
   </div>
 </template>
 
@@ -270,9 +276,9 @@
 import { ref, onMounted, reactive } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { User, MapLocation, Edit } from '@element-plus/icons-vue'
-import { getPerson, getPersonEvents, getPersonReminders, getPersonDetail, updatePersonFamily } from '@/api/persons'
+import { getPerson, getPersonEvents, getPersonReminders, getPersonDetail, updatePersonFamily, getPersons } from '@/api/persons'
 import { getCountries } from '@/api/countries'
-import { getFamilyMembers } from '@/api/family'
+import PersonForm from '@/components/PersonForm.vue'
 
 const router = useRouter()
 const route = useRoute()
@@ -286,6 +292,7 @@ const activeTab = ref('events')
 const countries = ref([])
 const availableFamilyMembers = ref([])
 const showEditFamily = ref(false)
+const showEditPerson = ref(false)
 
 const familyForm = reactive({
   father_id: null,
@@ -323,7 +330,12 @@ const goBack = () => {
 }
 
 const editPerson = () => {
-  router.push(`/persons/${personId}/edit`)
+  showEditPerson.value = true
+}
+
+const handleEditSuccess = async () => {
+  showEditPerson.value = false
+  await loadData()
 }
 
 const getMemberName = (memberId) => {
@@ -370,12 +382,12 @@ const submitFamily = async () => {
 
 const loadData = async () => {
   try {
-    const [personData, eventsData, remindersData, countriesData, familyMembersData] = await Promise.all([
+    const [personData, eventsData, remindersData, countriesData, personsData] = await Promise.all([
       getPersonDetail(personId),
       getPersonEvents(personId),
       getPersonReminders(personId),
       getCountries(),
-      getFamilyMembers()
+      getPersons()
     ])
 
     personInfo.value = personData.person
@@ -383,7 +395,11 @@ const loadData = async () => {
     events.value = eventsData
     reminders.value = remindersData
     countries.value = countriesData
-    availableFamilyMembers.value = familyMembersData
+    
+    availableFamilyMembers.value = personsData.map(p => ({
+      id: p.id,
+      name: p.nickname || `${p.last_name}${p.first_name}`
+    })).filter(p => p.id !== personId)
   } catch (error) {
     console.error('获取人物信息失败:', error)
   }

@@ -340,11 +340,10 @@ def get_person_detail(
             "gender": person.gender,
             "birth_date": person.birth_date.isoformat() if person.birth_date else None,
             "death_date": person.death_date.isoformat() if person.death_date else None,
-            "nationality": person.nationality,
-            "phone": person.phone,
-            "email": person.email,
-            "address": person.address,
-            "bio": person.bio
+            "country": person.country,
+            "hometown": person.hometown,
+            "residence": person.residence,
+            "is_me": person.is_me
         },
         "family": family
     }
