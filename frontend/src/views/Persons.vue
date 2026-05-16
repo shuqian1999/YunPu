@@ -52,6 +52,7 @@
         
         <div class="person-actions">
           <el-button
+            v-if="!person.is_me"
             type="danger"
             text
             size="small"

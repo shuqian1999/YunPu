@@ -35,10 +35,6 @@
           style="width: 100%"
         />
       </el-form-item>
-
-      <el-form-item label="标记为我自己">
-        <el-switch v-model="form.is_me" />
-      </el-form-item>
     </el-form>
 
     <template #footer>
@@ -74,15 +70,11 @@ const form = ref({
   nickname: '',
   name: '',
   gender: '',
-  birth_date: '',
-  is_me: false
+  birth_date: ''
 })
 
-const rules = {
-  nickname: [
-    { required: true, message: '请输入称呼', trigger: 'blur' }
-  ]
-}
+const rules = {}
+
 
 const dialogVisible = computed({
   get: () => props.visible,
@@ -101,8 +93,7 @@ const loadPerson = async () => {
       nickname: data.nickname || '',
       name: data.last_name ? data.last_name + data.first_name : '',
       gender: data.gender ? genderMap[data.gender] : '',
-      birth_date: data.birth_date || '',
-      is_me: data.is_me || false
+      birth_date: data.birth_date || ''
     }
   } catch (error) {
     ElMessage.error('加载人物信息失败')
@@ -127,8 +118,7 @@ const handleSubmit = async () => {
       last_name: last_name,
       first_name: first_name,
       gender: genderValue,
-      birth_date: form.value.birth_date || null,
-      is_me: form.value.is_me
+      birth_date: form.value.birth_date || null
     }
 
     if (isEdit.value) {
@@ -152,8 +142,7 @@ const handleClose = () => {
     nickname: '',
     name: '',
     gender: '',
-    birth_date: '',
-    is_me: false
+    birth_date: ''
   }
   dialogVisible.value = false
 }
