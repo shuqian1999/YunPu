@@ -83,10 +83,13 @@
 
 <script setup>
 import { ref, onMounted } from 'vue'
+import { useRouter } from 'vue-router'
 import { Plus, Search } from '@element-plus/icons-vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { getPersons, deletePerson } from '@/api/persons'
 import PersonForm from '@/components/PersonForm.vue'
+
+const router = useRouter()
 
 const loading = ref(false)
 const persons = ref([])
@@ -125,8 +128,8 @@ const handleEdit = (id) => {
 }
 
 const handleView = (id) => {
-  console.log('查看人物', id)
-}
+    router.push(`/persons/${id}`)
+  }
 
 const handleDelete = async (id) => {
   try {

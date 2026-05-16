@@ -113,7 +113,7 @@ async def get_dashboard_reminders(
 ```vue
 <template>
   <div class="dashboard-container">
-    <div class="stats-row">
+    <div class="dashboard-grid">
       <el-card class="stat-card">
         <div class="stat-content">
           <div class="stat-icon person-icon">
@@ -149,18 +149,15 @@ async def get_dashboard_reminders(
           </div>
         </div>
       </el-card>
-    </div>
-    
-    <div class="content-row">
+
       <el-card class="events-card">
         <template #header>
           <div class="card-header">
             <span class="card-title">事件时间轴</span>
-            <el-button text type="primary" @click="viewAllEvents">查看全部</el-button>
           </div>
         </template>
         
-        <el-timeline class="events-timeline">
+        <el-timeline v-if="events.length > 0" class="events-timeline">
           <el-timeline-item
             v-for="event in events"
             :key="event.id"
@@ -189,17 +186,17 @@ async def get_dashboard_reminders(
             </div>
           </el-timeline-item>
         </el-timeline>
+        <el-empty v-else description="暂无事件" />
       </el-card>
       
       <el-card class="reminders-card">
         <template #header>
           <div class="card-header">
             <span class="card-title">最近30天提醒</span>
-            <el-button text type="primary" @click="viewAllReminders">查看全部</el-button>
           </div>
         </template>
         
-        <div class="reminders-list">
+        <div v-if="reminders.length > 0" class="reminders-list">
           <div
             v-for="reminder in reminders"
             :key="reminder.id"
@@ -217,6 +214,7 @@ async def get_dashboard_reminders(
             </div>
           </div>
         </div>
+        <el-empty v-else description="暂无提醒" />
       </el-card>
     </div>
   </div>
@@ -224,11 +222,9 @@ async def get_dashboard_reminders(
 
 <script setup>
 import { ref, onMounted } from 'vue'
-import { useRouter } from 'vue-router'
+import { User, Document, Bell, Location } from '@element-plus/icons-vue'
 import { getDashboardStats, getDashboardEvents, getDashboardReminders } from '@/api/dashboard'
-import { formatDate } from '@/utils/date'
 
-const router = useRouter()
 const stats = ref({
   person_count: 0,
   event_count: 0,
@@ -237,22 +233,23 @@ const stats = ref({
 const events = ref([])
 const reminders = ref([])
 
+const formatDate = (dateStr) => {
+  const date = new Date(dateStr)
+  return date.toLocaleDateString('zh-CN', {
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit'
+  })
+}
+
 const loadDashboard = async () => {
   try {
     stats.value = await getDashboardStats()
-    events.value = await getDashboardEvents()
-    reminders.value = await getDashboardReminders()
+    events.value = await getDashboardEvents({ limit: 10 })
+    reminders.value = await getDashboardReminders({ days: 30 })
   } catch (error) {
     console.error('加载仪表盘失败:', error)
   }
-}
-
-const viewAllEvents = () => {
-  router.push('/events')
-}
-
-const viewAllReminders = () => {
-  router.push('/reminders')
 }
 
 onMounted(() => {
@@ -265,18 +262,22 @@ onMounted(() => {
   padding: 24px;
   max-width: 1400px;
   margin: 0 auto;
+  box-sizing: border-box;
 }
 
-.stats-row {
+.dashboard-grid {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
   gap: 16px;
-  margin-bottom: 24px;
 }
 
 .stat-card {
+  display: flex;
+  align-items: stretch;
+
   :deep(.el-card__body) {
     padding: 24px;
+    width: 100%;
   }
 }
 
@@ -284,9 +285,11 @@ onMounted(() => {
   display: flex;
   align-items: center;
   gap: 16px;
+  height: 100%;
 }
 
 .stat-icon {
+  flex-shrink: 0;
   width: 56px;
   height: 56px;
   border-radius: 8px;
@@ -313,6 +316,7 @@ onMounted(() => {
 
 .stat-info {
   flex: 1;
+  min-width: 0;
 }
 
 .stat-value {
@@ -328,10 +332,28 @@ onMounted(() => {
   margin-top: 4px;
 }
 
-.content-row {
-  display: grid;
-  grid-template-columns: 2fr 1fr;
-  gap: 16px;
+.events-card {
+  grid-column: span 2;
+
+  :deep(.el-card__body) {
+    padding: 20px;
+  }
+
+  :deep(.el-card__header) {
+    padding: 16px 20px;
+    border-bottom: 1px solid #EBEEF5;
+  }
+}
+
+.reminders-card {
+  :deep(.el-card__body) {
+    padding: 20px;
+  }
+
+  :deep(.el-card__header) {
+    padding: 16px 20px;
+    border-bottom: 1px solid #EBEEF5;
+  }
 }
 
 .card-header {
@@ -351,7 +373,7 @@ onMounted(() => {
 }
 
 .event-item {
-  padding: 8px 0;
+  padding: 12px 0;
 }
 
 .event-header {
@@ -359,6 +381,7 @@ onMounted(() => {
   align-items: center;
   gap: 8px;
   margin-bottom: 8px;
+  flex-wrap: wrap;
 }
 
 .event-title {
@@ -372,6 +395,7 @@ onMounted(() => {
   color: #606266;
   margin-bottom: 4px;
   line-height: 1.6;
+  padding-left: 24px;
 }
 
 .event-location {
@@ -380,16 +404,17 @@ onMounted(() => {
   gap: 4px;
   font-size: 13px;
   color: #909399;
+  padding-left: 24px;
 }
 
 .reminders-list {
-  max-height: 500px;
+  max-height: 480px;
   overflow-y: auto;
 }
 
 .reminder-item {
-  padding: 12px 0;
-  border-bottom: 1px solid #E4E7ED;
+  padding: 16px 0;
+  border-bottom: 1px solid #EBEEF5;
   
   &:last-child {
     border-bottom: none;
@@ -400,7 +425,7 @@ onMounted(() => {
   font-size: 14px;
   color: #409EFF;
   font-weight: 500;
-  margin-bottom: 4px;
+  margin-bottom: 8px;
   display: flex;
   align-items: center;
   gap: 8px;
@@ -413,7 +438,7 @@ onMounted(() => {
 .reminder-title {
   font-size: 14px;
   color: #303133;
-  margin-bottom: 2px;
+  margin-bottom: 4px;
 }
 
 .reminder-person {
@@ -540,6 +565,78 @@ async def delete_person(
     db.commit()
 ```
 
+#### 国家选择数据（新增）
+```python
+# app/core/countries.py
+COUNTRIES = {
+    "CN": {"name": "中国", "flag": "🇨🇳"},
+    "US": {"name": "美国", "flag": "🇺🇸"},
+    "JP": {"name": "日本", "flag": "🇯🇵"},
+    "KR": {"name": "韩国", "flag": "🇰🇷"},
+    "GB": {"name": "英国", "flag": "🇬🇧"},
+    "DE": {"name": "德国", "flag": "🇩🇪"},
+    "FR": {"name": "法国", "flag": "🇫🇷"},
+    "IT": {"name": "意大利", "flag": "🇮🇹"},
+    "ES": {"name": "西班牙", "flag": "🇪🇸"},
+    "PT": {"name": "葡萄牙", "flag": "🇵🇹"},
+    "BR": {"name": "巴西", "flag": "🇧🇷"},
+    "RU": {"name": "俄罗斯", "flag": "🇷🇺"},
+    "AU": {"name": "澳大利亚", "flag": "🇦🇺"},
+    "CA": {"name": "加拿大", "flag": "🇨🇦"},
+    "MX": {"name": "墨西哥", "flag": "🇲🇽"},
+    "IN": {"name": "印度", "flag": "🇮🇳"},
+    "ID": {"name": "印度尼西亚", "flag": "🇮🇩"},
+    "TH": {"name": "泰国", "flag": "🇹🇭"},
+    "SG": {"name": "新加坡", "flag": "🇸🇬"},
+    "MY": {"name": "马来西亚", "flag": "🇲🇾"},
+    "HK": {"name": "中国香港", "flag": "🇭🇰"},
+    "TW": {"name": "中国台湾", "flag": "🇹🇼"},
+    "MO": {"name": "中国澳门", "flag": "🇲🇴"},
+    "NZ": {"name": "新西兰", "flag": "🇳🇿"},
+    "ZA": {"name": "南非", "flag": "🇿🇦"},
+    "EG": {"name": "埃及", "flag": "🇪🇬"},
+    "NG": {"name": "尼日利亚", "flag": "🇳🇬"},
+    "KE": {"name": "肯尼亚", "flag": "🇰🇪"},
+    "AR": {"name": "阿根廷", "flag": "🇦🇷"},
+    "CL": {"name": "智利", "flag": "🇨🇱"},
+    "CO": {"name": "哥伦比亚", "flag": "🇨🇴"},
+    "PE": {"name": "秘鲁", "flag": "🇵🇪"},
+    "VE": {"name": "委内瑞拉", "flag": "🇻🇪"},
+    "IE": {"name": "爱尔兰", "flag": "🇮🇪"},
+    "NL": {"name": "荷兰", "flag": "🇳🇱"},
+    "BE": {"name": "比利时", "flag": "🇧🇪"},
+    "AT": {"name": "奥地利", "flag": "🇦🇹"},
+    "CH": {"name": "瑞士", "flag": "🇨🇭"},
+    "SE": {"name": "瑞典", "flag": "🇸🇪"},
+    "NO": {"name": "挪威", "flag": "🇳🇴"},
+    "DK": {"name": "丹麦", "flag": "🇩🇰"},
+    "FI": {"name": "芬兰", "flag": "🇫🇮"},
+    "PL": {"name": "波兰", "flag": "🇵🇱"},
+    "CZ": {"name": "捷克", "flag": "🇨🇿"},
+    "HU": {"name": "匈牙利", "flag": "🇭🇺"},
+    "RO": {"name": "罗马尼亚", "flag": "🇷🇴"},
+    "BG": {"name": "保加利亚", "flag": "🇧🇬"},
+    "GR": {"name": "希腊", "flag": "🇬🇷"},
+    "TR": {"name": "土耳其", "flag": "🇹🇷"},
+    "AE": {"name": "阿联酋", "flag": "🇦🇪"},
+    "SA": {"name": "沙特阿拉伯", "flag": "🇸🇦"},
+    "IL": {"name": "以色列", "flag": "🇮🇱"}
+}
+```
+
+##### 国家列表接口（新增）
+```python
+# app/api/countries.py
+from fastapi import APIRouter
+from app.core.countries import COUNTRIES
+
+router = APIRouter(prefix="/countries", tags=["国家"])
+
+@router.get("")
+async def get_countries():
+    return COUNTRIES
+```
+
 #### 前端人物列表页
 
 ##### Persons.vue
@@ -580,13 +677,13 @@ async def delete_person(
       >
         <div class="person-avatar">
           <el-avatar :size="80" :src="person.avatar_url">
-            {{ person.nickname || person.first_name }}
+            {{ person.nickname || person.last_name }}
           </el-avatar>
         </div>
         
         <div class="person-info">
           <div class="person-name">
-            {{ person.first_name }}{{ person.last_name }}
+            {{ person.last_name }}{{ person.first_name }}
           </div>
           <div v-if="person.nickname" class="person-nickname">
             {{ person.nickname }}
@@ -617,16 +714,6 @@ async def delete_person(
       </el-card>
     </div>
     
-    <el-pagination
-      v-model:current-page="currentPage"
-      v-model:page-size="pageSize"
-      :total="total"
-      :page-sizes="[12, 24, 48]"
-      layout="total, sizes, prev, pager, next"
-      @size-change="loadPersons"
-      @current-change="loadPersons"
-    />
-    
     <PersonForm
       v-model:visible="formVisible"
       :person-id="editingPersonId"
@@ -646,9 +733,6 @@ const router = useRouter()
 const loading = ref(false)
 const persons = ref([])
 const searchQuery = ref('')
-const currentPage = ref(1)
-const pageSize = ref(12)
-const total = ref(0)
 const formVisible = ref(false)
 const editingPersonId = ref(null)
 
@@ -656,12 +740,9 @@ const loadPersons = async () => {
   loading.value = true
   try {
     const response = await getPersons({
-      skip: (currentPage.value - 1) * pageSize.value,
-      limit: pageSize.value,
       search: searchQuery.value || undefined
     })
     persons.value = response
-    total.value = response.length
   } catch (error) {
     ElMessage.error('加载人物列表失败')
   } finally {
@@ -670,7 +751,6 @@ const loadPersons = async () => {
 }
 
 const handleSearch = () => {
-  currentPage.value = 1
   loadPersons()
 }
 
@@ -800,6 +880,161 @@ onMounted(() => {
 </style>
 ```
 
+##### PersonForm.vue
+```vue
+<template>
+  <el-dialog
+    :title="editingPersonId ? '编辑人物' : '添加人物'"
+    :visible.sync="visible"
+    width="500px"
+  >
+    <el-form :model="form" label-width="80px">
+      <el-form-item label="姓名">
+        <el-row :gutter="12">
+          <el-col :span="12">
+            <el-input v-model="form.last_name" placeholder="姓" />
+          </el-col>
+          <el-col :span="12">
+            <el-input v-model="form.first_name" placeholder="名" />
+          </el-col>
+        </el-row>
+      </el-form-item>
+      
+      <el-form-item label="昵称">
+        <el-input v-model="form.nickname" placeholder="昵称（可选）" />
+      </el-form-item>
+      
+      <el-form-item label="国家">
+        <el-select v-model="form.country" placeholder="请选择国家">
+          <el-option
+            v-for="(country, code) in countries"
+            :key="code"
+            :label="`${country.flag} ${country.name}`"
+            :value="code"
+          />
+        </el-select>
+      </el-form-item>
+      
+      <el-form-item label="地址">
+        <el-input v-model="form.address" placeholder="地址（可选）" />
+      </el-form-item>
+      
+      <el-form-item label="电话">
+        <el-input v-model="form.phone" placeholder="电话（可选）" />
+      </el-form-item>
+      
+      <el-form-item label="邮箱">
+        <el-input v-model="form.email" placeholder="邮箱（可选）" />
+      </el-form-item>
+      
+      <el-form-item label="备注">
+        <el-input type="textarea" v-model="form.notes" placeholder="备注（可选）" />
+      </el-form-item>
+    </el-form>
+    
+    <template #footer>
+      <el-button @click="visible = false">取消</el-button>
+      <el-button type="primary" @click="handleSubmit">保存</el-button>
+    </template>
+  </el-dialog>
+</template>
+
+<script setup>
+import { ref, watch, onMounted } from 'vue'
+import { ElMessage } from 'element-plus'
+import { createPerson, updatePerson, getPerson } from '@/api/persons'
+import { getCountries } from '@/api/countries'
+
+const props = defineProps({
+  visible: Boolean,
+  personId: [Number, null]
+})
+
+const emit = defineEmits(['update:visible', 'success'])
+
+const form = ref({
+  last_name: '',
+  first_name: '',
+  nickname: '',
+  country: '',
+  address: '',
+  phone: '',
+  email: '',
+  notes: ''
+})
+
+const countries = ref({})
+
+const resetForm = () => {
+  form.value = {
+    last_name: '',
+    first_name: '',
+    nickname: '',
+    country: '',
+    address: '',
+    phone: '',
+    email: '',
+    notes: ''
+  }
+}
+
+const handleSubmit = async () => {
+  try {
+    const data = { ...form.value }
+    Object.keys(data).forEach(key => {
+      if (data[key] === '') {
+        data[key] = null
+      }
+    })
+    
+    if (props.personId) {
+      await updatePerson(props.personId, data)
+      ElMessage.success('更新成功')
+    } else {
+      await createPerson(data)
+      ElMessage.success('创建成功')
+    }
+    
+    emit('success')
+    emit('update:visible', false)
+    resetForm()
+  } catch (error) {
+    ElMessage.error(props.personId ? '更新失败' : '创建失败')
+  }
+}
+
+watch(() => props.visible, async (val) => {
+  if (val && props.personId) {
+    try {
+      const person = await getPerson(props.personId)
+      form.value = {
+        last_name: person.last_name || '',
+        first_name: person.first_name || '',
+        nickname: person.nickname || '',
+        country: person.country || '',
+        address: person.address || '',
+        phone: person.phone || '',
+        email: person.email || '',
+        notes: person.notes || ''
+      }
+    } catch (error) {
+      console.error('加载人物信息失败:', error)
+    }
+  } else if (val) {
+    resetForm()
+  }
+})
+
+onMounted(async () => {
+  try {
+    countries.value = await getCountries()
+  } catch (error) {
+    console.error('加载国家列表失败:', error)
+  }
+})
+</script>
+```
+
 ---
 
 ### 2.3 事件时间轴组件
@@ -836,6 +1071,25 @@ async def get_events(
     events = query.order_by(Event.event_date.desc()).offset(skip).limit(limit).all()
     return events
 
+@router.get("/{event_id}", response_model=EventResponse)
+async def get_event(
+    event_id: int,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    event = db.query(Event).filter(
+        Event.id == event_id,
+        Event.user_id == current_user.id
+    ).first()
+    
+    if not event:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="事件不存在"
+        )
+    
+    return event
+
 @router.post("", response_model=EventResponse, status_code=status.HTTP_201_CREATED)
 async def create_event(
     event: EventCreate,
@@ -847,6 +1101,51 @@ async def create_event(
     db.commit()
     db.refresh(db_event)
     return db_event
+
+@router.put("/{event_id}", response_model=EventResponse)
+async def update_event(
+    event_id: int,
+    event: EventUpdate,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    db_event = db.query(Event).filter(
+        Event.id == event_id,
+        Event.user_id == current_user.id
+    ).first()
+    
+    if not db_event:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="事件不存在"
+        )
+    
+    for key, value in event.dict(exclude_unset=True).items():
+        setattr(db_event, key, value)
+    
+    db.commit()
+    db.refresh(db_event)
+    return db_event
+
+@router.delete("/{event_id}", status_code=status.HTTP_204_NO_CONTENT)
+async def delete_event(
+    event_id: int,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    db_event = db.query(Event).filter(
+        Event.id == event_id,
+        Event.user_id == current_user.id
+    ).first()
+    
+    if not db_event:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="事件不存在"
+        )
+    
+    db.delete(db_event)
+    db.commit()
 ```
 
 ---
@@ -885,6 +1184,25 @@ async def get_reminders(
     reminders = query.order_by(Reminder.remind_date.asc()).offset(skip).limit(limit).all()
     return reminders
 
+@router.get("/{reminder_id}", response_model=ReminderResponse)
+async def get_reminder(
+    reminder_id: int,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    reminder = db.query(Reminder).filter(
+        Reminder.id == reminder_id,
+        Reminder.user_id == current_user.id
+    ).first()
+    
+    if not reminder:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="提醒不存在"
+        )
+    
+    return reminder
+
 @router.post("", response_model=ReminderResponse, status_code=status.HTTP_201_CREATED)
 async def create_reminder(
     reminder: ReminderCreate,
@@ -896,6 +1214,115 @@ async def create_reminder(
     db.commit()
     db.refresh(db_reminder)
     return db_reminder
+
+@router.put("/{reminder_id}", response_model=ReminderResponse)
+async def update_reminder(
+    reminder_id: int,
+    reminder: ReminderUpdate,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    db_reminder = db.query(Reminder).filter(
+        Reminder.id == reminder_id,
+        Reminder.user_id == current_user.id
+    ).first()
+    
+    if not db_reminder:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="提醒不存在"
+        )
+    
+    for key, value in reminder.dict(exclude_unset=True).items():
+        setattr(db_reminder, key, value)
+    
+    db.commit()
+    db.refresh(db_reminder)
+    return db_reminder
+
+@router.delete("/{reminder_id}", status_code=status.HTTP_204_NO_CONTENT)
+async def delete_reminder(
+    reminder_id: int,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    db_reminder = db.query(Reminder).filter(
+        Reminder.id == reminder_id,
+        Reminder.user_id == current_user.id
+    ).first()
+    
+    if not db_reminder:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="提醒不存在"
+        )
+    
+    db.delete(db_reminder)
+    db.commit()
+```
+
+---
+
+## 数据库模型
+
+### 事件类型模型
+```python
+# app/models/event_type.py
+from sqlalchemy import Column, Integer, String
+from app.database import Base
+
+class EventType(Base):
+    __tablename__ = "event_types"
+    
+    id = Column(Integer, primary_key=True, index=True)
+    name = Column(String(50), unique=True, index=True)
+    color = Column(String(20), default="#409EFF")
+```
+
+### 事件模型
+```python
+# app/models/event.py
+from sqlalchemy import Column, Integer, String, Date, ForeignKey
+from sqlalchemy.orm import relationship
+from app.database import Base
+
+class Event(Base):
+    __tablename__ = "events"
+    
+    id = Column(Integer, primary_key=True, index=True)
+    user_id = Column(Integer, ForeignKey("users.id"))
+    person_id = Column(Integer, ForeignKey("persons.id"), nullable=True)
+    event_type_id = Column(Integer, ForeignKey("event_types.id"), nullable=True)
+    title = Column(String(200), nullable=False)
+    description = Column(String(1000))
+    event_date = Column(Date, nullable=False)
+    location = Column(String(200))
+    
+    user = relationship("User", back_populates="events")
+    person = relationship("Person", back_populates="events")
+    event_type = relationship("EventType", back_populates="events")
+```
+
+### 提醒模型
+```python
+# app/models/reminder.py
+from sqlalchemy import Column, Integer, String, Date, Boolean, ForeignKey
+from sqlalchemy.orm import relationship
+from app.database import Base
+
+class Reminder(Base):
+    __tablename__ = "reminders"
+    
+    id = Column(Integer, primary_key=True, index=True)
+    user_id = Column(Integer, ForeignKey("users.id"))
+    person_id = Column(Integer, ForeignKey("persons.id"), nullable=True)
+    title = Column(String(200), nullable=False)
+    remind_date = Column(Date, nullable=False)
+    is_lunar = Column(Boolean, default=False)
+    enabled = Column(Boolean, default=True)
+    
+    user = relationship("User", back_populates="reminders")
+    person = relationship("Person", back_populates="reminders")
 ```
 
 ---
@@ -903,21 +1330,24 @@ async def create_reminder(
 ## 验收标准
 
 ### 功能验收
-- [ ] 仪表盘显示人物、事件、提醒统计
-- [ ] 事件时间轴按时间倒序显示
-- [ ] 最近30天提醒按日期升序显示
-- [ ] 人物列表支持搜索（姓名、昵称）
-- [ ] 人物 CRUD 功能完整（创建、读取、更新、删除）
-- [ ] 事件 CRUD 功能完整
-- [ ] 提醒 CRUD 功能完整
-- [ ] 分页功能正常
+- [x] 仪表盘显示人物、事件、提醒统计
+- [x] 事件时间轴按时间倒序显示
+- [x] 最近30天提醒按日期升序显示
+- [x] 人物列表支持搜索（姓名、昵称）
+- [x] 人物 CRUD 功能完整（创建、读取、更新、删除）
+- [x] 事件 CRUD 功能完整
+- [x] 提醒 CRUD 功能完整
+- [x] 国家下拉选择（带国旗 emoji）
+- [x] 中文姓名顺序（姓在前，名在后）
+- [ ] 分页功能正常（待完善）
+- [ ] 人物详情页（待开发）
 
 ### UI/UX 验收
-- [ ] 使用天蓝 #409EFF 和云朵白 #F5F7FA 主色调
-- [ ] 卡片悬停效果流畅
-- [ ] 加载状态显示正常
-- [ ] 空状态提示友好
-- [ ] 响应式布局适配平板和桌面
+- [x] 使用天蓝 #409EFF 和云朵白 #F5F7FA 主色调
+- [x] 卡片悬停效果流畅
+- [x] 加载状态显示正常
+- [x] 空状态提示友好
+- [x] 统一网格布局对齐
 
 ### 性能要求
 - [ ] 仪表盘加载时间 < 1s

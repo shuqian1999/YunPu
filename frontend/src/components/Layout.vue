@@ -34,6 +34,10 @@
             <el-icon><User /></el-icon>
             <span>人物管理</span>
           </el-menu-item>
+          <el-menu-item index="/family/tree">
+            <el-icon><Tree /></el-icon>
+            <span>家族树</span>
+          </el-menu-item>
         </el-menu>
       </el-aside>
       
@@ -48,7 +52,7 @@
 import { computed } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { ElMessage } from 'element-plus'
-import { User, Odometer } from '@element-plus/icons-vue'
+import { User, Odometer, Tree } from '@element-plus/icons-vue'
 
 const router = useRouter()
 const route = useRoute()

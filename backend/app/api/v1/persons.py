@@ -110,3 +110,115 @@ def delete_person(
     
     db.delete(db_person)
     db.commit()
+
+
+@router.get("/{person_id}/events", response_model=List[dict])
+def get_person_events(
+    person_id: int,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    from app.models.event import Event
+    
+    events = db.query(Event).filter(
+        Event.person_id == person_id,
+        Event.user_id == current_user.id
+    ).order_by(Event.event_date.desc()).all()
+    
+    return [
+        {
+            "id": event.id,
+            "title": event.title,
+            "description": event.description,
+            "event_date": event.event_date.isoformat(),
+            "location": event.location,
+            "event_type": event.event_type.name if event.event_type else None,
+            "event_type_color": event.event_type.color if event.event_type else "#409EFF"
+        }
+        for event in events
+    ]
+
+
+@router.get("/{person_id}/reminders", response_model=List[dict])
+def get_person_reminders(
+    person_id: int,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    from app.models.reminder import Reminder
+    
+    reminders = db.query(Reminder).filter(
+        Reminder.person_id == person_id,
+        Reminder.user_id == current_user.id,
+        Reminder.enabled == True
+    ).order_by(Reminder.remind_date.asc()).all()
+    
+    return [
+        {
+            "id": reminder.id,
+            "title": reminder.title,
+            "remind_date": reminder.remind_date.isoformat(),
+            "is_lunar": reminder.is_lunar
+        }
+        for reminder in reminders
+    ]
+
+
+@router.get("/{person_id}/relations")
+def get_person_relations(
+    person_id: int,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    from app.models.family_member import FamilyMember
+    from app.models.family_relation import FamilyRelation
+    from app.models.person import Person
+    
+    family_member = db.query(FamilyMember).filter(
+        FamilyMember.person_id == person_id,
+        FamilyMember.user_id == current_user.id
+    ).first()
+    
+    if not family_member:
+        return {"parents": [], "children": []}
+    
+    parent_relations = db.query(FamilyRelation).filter(
+        FamilyRelation.child_id == family_member.id,
+        FamilyRelation.user_id == current_user.id
+    ).all()
+    
+    children_relations = db.query(FamilyRelation).filter(
+        FamilyRelation.parent_id == family_member.id,
+        FamilyRelation.user_id == current_user.id
+    ).all()
+    
+    parents = []
+    for pr in parent_relations:
+        parent_member = db.query(FamilyMember).filter(FamilyMember.id == pr.parent_id).first()
+        if parent_member:
+            parent_person = db.query(Person).filter(Person.id == parent_member.person_id).first()
+            parents.append({
+                "id": parent_member.id,
+                "person_id": parent_member.person_id,
+                "name": parent_person.nickname or f"{parent_person.last_name}{parent_person.first_name}",
+                "parent_type": pr.parent_type,
+                "relation_nature": pr.relation_nature
+            })
+    
+    children = []
+    for cr in children_relations:
+        child_member = db.query(FamilyMember).filter(FamilyMember.id == cr.child_id).first()
+        if child_member:
+            child_person = db.query(Person).filter(Person.id == child_member.person_id).first()
+            children.append({
+                "id": child_member.id,
+                "person_id": child_member.person_id,
+                "name": child_person.nickname or f"{child_person.last_name}{child_person.first_name}",
+                "parent_type": cr.parent_type,
+                "relation_nature": cr.relation_nature
+            })
+    
+    return {
+        "parents": parents,
+        "children": children
+    }
