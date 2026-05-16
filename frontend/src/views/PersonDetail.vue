@@ -65,8 +65,8 @@
         <div class="relations-content">
           <div class="relation-group">
             <h4>父母</h4>
-            <div v-if="relations.parents.length === 0" class="empty">暂无父母信息</div>
-            <div v-else class="relation-list">
+            <div v-if="relations.parents && relations.parents.length === 0" class="empty">暂无父母信息</div>
+            <div v-else-if="relations.parents" class="relation-list">
               <div
                 v-for="parent in relations.parents"
                 :key="parent.id"
@@ -86,8 +86,8 @@
 
           <div class="relation-group">
             <h4>子女</h4>
-            <div v-if="relations.children.length === 0" class="empty">暂无子女信息</div>
-            <div v-else class="relation-list">
+            <div v-if="relations.children && relations.children.length === 0" class="empty">暂无子女信息</div>
+            <div v-else-if="relations.children" class="relation-list">
               <div
                 v-for="child in relations.children"
                 :key="child.id"
@@ -172,7 +172,7 @@
 </template>
 
 <script setup>
-import { ref, onMounted, computed } from 'vue'
+import { ref, onMounted } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { User, MapLocation } from '@element-plus/icons-vue'
 import { getPerson, getPersonEvents, getPersonReminders, getPersonRelations } from '@/api/persons'
@@ -215,7 +215,7 @@ const goBack = () => {
 
 onMounted(async () => {
   try {
-    const [personRes, eventsRes, remindersRes, relationsRes, countriesRes] = await Promise.all([
+    const [personData, eventsData, remindersData, relationsData, countriesData] = await Promise.all([
       getPerson(personId),
       getPersonEvents(personId),
       getPersonReminders(personId),
@@ -223,11 +223,11 @@ onMounted(async () => {
       getCountries()
     ])
 
-    personInfo.value = personRes.data
-    events.value = eventsRes.data
-    reminders.value = remindersRes.data
-    relations.value = relationsRes.data
-    countries.value = countriesRes.data
+    personInfo.value = personData
+    events.value = eventsData
+    reminders.value = remindersData
+    relations.value = relationsData
+    countries.value = countriesData
   } catch (error) {
     console.error('获取人物信息失败:', error)
   }

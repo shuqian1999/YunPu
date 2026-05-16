@@ -1,29 +1,29 @@
-import request from '@/utils/request'
+import request from '../utils/request'
 
 export const getFamilyTree = () => {
   return request({
-    url: '/api/v1/family/tree',
+    url: '/family/tree',
     method: 'get'
   })
 }
 
 export const getCalculatedRelations = () => {
   return request({
-    url: '/api/v1/family/relations',
+    url: '/family/relations',
     method: 'get'
   })
 }
 
 export const recalculateRelations = () => {
   return request({
-    url: '/api/v1/family/recalculate',
+    url: '/family/recalculate',
     method: 'post'
   })
 }
 
 export const addFamilyMember = (personId) => {
   return request({
-    url: '/api/v1/family/member',
+    url: '/family/member',
     method: 'post',
     params: { person_id: personId }
   })
@@ -31,7 +31,7 @@ export const addFamilyMember = (personId) => {
 
 export const addFamilyRelation = (parentPersonId, childPersonId, parentType, relationNature) => {
   return request({
-    url: '/api/v1/family/relation',
+    url: '/family/relation',
     method: 'post',
     params: {
       parent_person_id: parentPersonId,
