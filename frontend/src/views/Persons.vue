@@ -40,7 +40,7 @@
         
         <div class="person-info">
           <div class="person-name">
-            {{ person.first_name }}{{ person.last_name }}
+            {{ person.last_name }}{{ person.first_name }}
           </div>
           <div v-if="person.nickname" class="person-nickname">
             {{ person.nickname }}
