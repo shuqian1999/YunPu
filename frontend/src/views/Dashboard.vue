@@ -1,6 +1,6 @@
 <template>
   <div class="dashboard-container">
-    <div class="stats-row">
+    <div class="dashboard-grid">
       <el-card class="stat-card">
         <div class="stat-content">
           <div class="stat-icon person-icon">
@@ -12,7 +12,7 @@
           </div>
         </div>
       </el-card>
-      
+
       <el-card class="stat-card">
         <div class="stat-content">
           <div class="stat-icon event-icon">
@@ -24,7 +24,7 @@
           </div>
         </div>
       </el-card>
-      
+
       <el-card class="stat-card">
         <div class="stat-content">
           <div class="stat-icon reminder-icon">
@@ -36,16 +36,14 @@
           </div>
         </div>
       </el-card>
-    </div>
-    
-    <div class="content-row">
+
       <el-card class="events-card">
         <template #header>
           <div class="card-header">
             <span class="card-title">事件时间轴</span>
           </div>
         </template>
-        
+
         <el-timeline v-if="events.length > 0" class="events-timeline">
           <el-timeline-item
             v-for="event in events"
@@ -77,14 +75,14 @@
         </el-timeline>
         <el-empty v-else description="暂无事件" />
       </el-card>
-      
+
       <el-card class="reminders-card">
         <template #header>
           <div class="card-header">
             <span class="card-title">最近30天提醒</span>
           </div>
         </template>
-        
+
         <div v-if="reminders.length > 0" class="reminders-list">
           <div
             v-for="reminder in reminders"
@@ -151,18 +149,22 @@ onMounted(() => {
   padding: 24px;
   max-width: 1400px;
   margin: 0 auto;
+  box-sizing: border-box;
 }
 
-.stats-row {
+.dashboard-grid {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
   gap: 16px;
-  margin-bottom: 24px;
 }
 
 .stat-card {
+  display: flex;
+  align-items: stretch;
+
   :deep(.el-card__body) {
     padding: 24px;
+    width: 100%;
   }
 }
 
@@ -170,9 +172,11 @@ onMounted(() => {
   display: flex;
   align-items: center;
   gap: 16px;
+  height: 100%;
 }
 
 .stat-icon {
+  flex-shrink: 0;
   width: 56px;
   height: 56px;
   border-radius: 8px;
@@ -180,17 +184,17 @@ onMounted(() => {
   align-items: center;
   justify-content: center;
   font-size: 28px;
-  
+
   &.person-icon {
     background: #E1F3FF;
     color: #409EFF;
   }
-  
+
   &.event-icon {
     background: #E1F3FF;
     color: #409EFF;
   }
-  
+
   &.reminder-icon {
     background: #E1F3FF;
     color: #409EFF;
@@ -199,6 +203,7 @@ onMounted(() => {
 
 .stat-info {
   flex: 1;
+  min-width: 0;
 }
 
 .stat-value {
@@ -214,10 +219,28 @@ onMounted(() => {
   margin-top: 4px;
 }
 
-.content-row {
-  display: grid;
-  grid-template-columns: 2fr 1fr;
-  gap: 16px;
+.events-card {
+  grid-column: span 2;
+
+  :deep(.el-card__body) {
+    padding: 20px;
+  }
+
+  :deep(.el-card__header) {
+    padding: 16px 20px;
+    border-bottom: 1px solid #EBEEF5;
+  }
+}
+
+.reminders-card {
+  :deep(.el-card__body) {
+    padding: 20px;
+  }
+
+  :deep(.el-card__header) {
+    padding: 16px 20px;
+    border-bottom: 1px solid #EBEEF5;
+  }
 }
 
 .card-header {
@@ -237,7 +260,7 @@ onMounted(() => {
 }
 
 .event-item {
-  padding: 8px 0;
+  padding: 12px 0;
 }
 
 .event-header {
@@ -245,6 +268,7 @@ onMounted(() => {
   align-items: center;
   gap: 8px;
   margin-bottom: 8px;
+  flex-wrap: wrap;
 }
 
 .event-title {
@@ -258,6 +282,7 @@ onMounted(() => {
   color: #606266;
   margin-bottom: 4px;
   line-height: 1.6;
+  padding-left: 24px;
 }
 
 .event-location {
@@ -266,17 +291,18 @@ onMounted(() => {
   gap: 4px;
   font-size: 13px;
   color: #909399;
+  padding-left: 24px;
 }
 
 .reminders-list {
-  max-height: 500px;
+  max-height: 480px;
   overflow-y: auto;
 }
 
 .reminder-item {
-  padding: 12px 0;
-  border-bottom: 1px solid #E4E7ED;
-  
+  padding: 16px 0;
+  border-bottom: 1px solid #EBEEF5;
+
   &:last-child {
     border-bottom: none;
   }
@@ -286,7 +312,7 @@ onMounted(() => {
   font-size: 14px;
   color: #409EFF;
   font-weight: 500;
-  margin-bottom: 4px;
+  margin-bottom: 8px;
   display: flex;
   align-items: center;
   gap: 8px;
@@ -299,7 +325,7 @@ onMounted(() => {
 .reminder-title {
   font-size: 14px;
   color: #303133;
-  margin-bottom: 2px;
+  margin-bottom: 4px;
 }
 
 .reminder-person {
