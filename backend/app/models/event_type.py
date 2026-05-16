@@ -1,4 +1,5 @@
 from sqlalchemy import Column, Integer, String
+from sqlalchemy.orm import relationship
 from app.models.base import Base
 
 
@@ -9,3 +10,5 @@ class EventType(Base):
     name = Column(String(50), nullable=False, unique=True)
     color = Column(String(20), nullable=False, default="#409EFF")
     icon = Column(String(50), nullable=True)
+    
+    events = relationship("Event", back_populates="event_type")

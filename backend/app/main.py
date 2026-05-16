@@ -7,6 +7,9 @@ from app.core.database import engine, SessionLocal, init_db
 from app.models.base import Base
 from app.models.user import User
 from app.models.person import Person
+from app.models.event import Event
+from app.models.reminder import Reminder
+from app.models.event_type import EventType
 from app.core.security import hash_password
 
 app = FastAPI(
