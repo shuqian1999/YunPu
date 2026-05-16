@@ -343,6 +343,7 @@ def get_person_detail(
             "country": person.country,
             "hometown": person.hometown,
             "residence": person.residence,
+            "custom_fields": person.custom_fields,
             "is_me": person.is_me
         },
         "family": family

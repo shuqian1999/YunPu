@@ -4,14 +4,20 @@
       <template #content>
         <span class="person-name">{{ personInfo.nickname || (personInfo.last_name + personInfo.first_name) }}</span>
         <el-tag v-if="personInfo.is_me" type="primary" size="small">我</el-tag>
-        <el-tag v-if="personInfo.gender === 'female'" type="success" size="small">女</el-tag>
-        <el-tag v-else-if="personInfo.gender === 'male'" type="warning" size="small">男</el-tag>
+        <el-tag v-if="personInfo.gender === 2" type="success" size="small">女</el-tag>
+        <el-tag v-else-if="personInfo.gender === 1" type="warning" size="small">男</el-tag>
       </template>
       <template #extra>
-        <el-button @click="editPerson" type="primary" size="small">
-          <el-icon><Edit /></el-icon>
-          编辑
-        </el-button>
+        <template v-if="!isEditing">
+          <el-button @click="startEdit" type="primary" size="small">
+            <el-icon><Edit /></el-icon>
+            编辑
+          </el-button>
+        </template>
+        <template v-else>
+          <el-button @click="cancelEdit" size="small">取消</el-button>
+          <el-button @click="saveEdit" type="primary" size="small" :loading="saving">保存</el-button>
+        </template>
       </template>
     </el-page-header>
 
@@ -36,32 +42,77 @@
 
         <div class="basic-info">
           <div class="info-row">
+            <span class="label">称呼</span>
+            <span v-if="!isEditing" class="value">{{ personInfo.nickname || '-' }}</span>
+            <el-input v-else v-model="editForm.nickname" class="edit-input" placeholder="请输入称呼" />
+          </div>
+          <div class="info-row">
+            <span class="label">姓名</span>
+            <span v-if="!isEditing" class="value">{{ personInfo.last_name }}{{ personInfo.first_name || '-' }}</span>
+            <el-input v-else v-model="editForm.name" class="edit-input" placeholder="请输入姓名" />
+          </div>
+          <div class="info-row">
+            <span class="label">性别</span>
+            <span v-if="!isEditing" class="value">{{ personInfo.gender === 1 ? '男' : personInfo.gender === 2 ? '女' : '-' }}</span>
+            <el-radio-group v-else v-model="editForm.gender">
+              <el-radio :value="1">男</el-radio>
+              <el-radio :value="2">女</el-radio>
+            </el-radio-group>
+          </div>
+          <div class="info-row">
             <span class="label">出生日期</span>
-            <span class="value">{{ formatDate(personInfo.birth_date) }}</span>
+            <span v-if="!isEditing" class="value">{{ formatDate(personInfo.birth_date) }}</span>
+            <el-date-picker v-else v-model="editForm.birth_date" type="date" placeholder="选择出生日期" value-format="YYYY-MM-DD" class="edit-input" />
+          </div>
+          <div class="info-row">
+            <span class="label">是否已故</span>
+            <span v-if="!isEditing" class="value">{{ personInfo.death_date ? '是' : '否' }}</span>
+            <el-switch v-else v-model="editForm.is_deceased" active-text="是" inactive-text="否" />
           </div>
           <div class="info-row">
             <span class="label">逝世日期</span>
-            <span class="value">{{ personInfo.death_date ? formatDate(personInfo.death_date) : '-' }}</span>
+            <span v-if="!isEditing" class="value">{{ personInfo.death_date ? formatDate(personInfo.death_date) : '-' }}</span>
+            <el-date-picker v-else v-model="editForm.death_date" type="date" placeholder="选择逝世日期" value-format="YYYY-MM-DD" class="edit-input" :disabled="!editForm.is_deceased" />
           </div>
           <div class="info-row">
-            <span class="label">国籍</span>
-            <span class="value">{{ getCountryName(personInfo.nationality) }}</span>
+            <span class="label">国家</span>
+            <span v-if="!isEditing" class="value">{{ getCountryName(personInfo.country) }}</span>
+            <el-select v-else v-model="editForm.country" class="edit-input" placeholder="选择国家" filterable clearable style="width: 200px">
+              <el-option v-for="(info, code) in countries" :key="code" :label="info.name" :value="code" />
+            </el-select>
           </div>
           <div class="info-row">
-            <span class="label">电话</span>
-            <span class="value">{{ personInfo.phone || '-' }}</span>
+            <span class="label">家乡</span>
+            <span v-if="!isEditing" class="value">{{ personInfo.hometown || '-' }}</span>
+            <el-input v-else v-model="editForm.hometown" class="edit-input" placeholder="请输入家乡" />
           </div>
           <div class="info-row">
-            <span class="label">邮箱</span>
-            <span class="value">{{ personInfo.email || '-' }}</span>
-          </div>
-          <div class="info-row">
-            <span class="label">地址</span>
-            <span class="value">{{ personInfo.address || '-' }}</span>
+            <span class="label">现居地</span>
+            <span v-if="!isEditing" class="value">{{ personInfo.residence || '-' }}</span>
+            <el-input v-else v-model="editForm.residence" class="edit-input" placeholder="请输入现居地" />
           </div>
           <div class="info-row">
             <span class="label">备注</span>
-            <span class="value">{{ personInfo.notes || '-' }}</span>
+            <span v-if="!isEditing" class="value">{{ personInfo.custom_fields?.notes || '-' }}</span>
+            <el-input v-else v-model="editForm.notes" class="edit-textarea" type="textarea" placeholder="请输入备注" :rows="3" />
+          </div>
+          <div class="info-row">
+            <span class="label">自定义字段</span>
+            <div v-if="!isEditing" class="value custom-fields-view">
+              <div v-if="customFieldsList.length === 0">暂无自定义字段</div>
+              <div v-for="(field, index) in customFieldsList" :key="index" class="custom-field-item">
+                <span class="field-name">{{ field.name }}:</span>
+                <span class="field-value">{{ field.value }}</span>
+              </div>
+            </div>
+            <div v-else class="custom-fields-edit">
+              <div v-for="(field, index) in editForm.customFields" :key="index" class="custom-field-row">
+                <el-input v-model="field.name" placeholder="字段名称" class="custom-field-name" />
+                <el-input v-model="field.value" placeholder="字段值" class="custom-field-value" />
+                <el-button v-if="editForm.customFields.length > 1" @click="removeCustomField(index)" text type="danger" size="small">删除</el-button>
+              </div>
+              <el-button @click="addCustomField" text type="primary" size="small">+ 添加字段</el-button>
+            </div>
           </div>
         </div>
       </div>
@@ -164,21 +215,17 @@
             <div class="tab-content">
               <div v-if="reminders.length === 0" class="empty">暂无提醒事项</div>
               <div v-else class="reminder-list">
-                <el-list-item
+                <div
                   v-for="reminder in reminders"
                   :key="reminder.id"
                   class="reminder-item"
                 >
-                  <el-list-item-meta>
-                    <template #title>
-                      <span class="reminder-title">{{ reminder.title }}</span>
-                      <el-tag v-if="reminder.is_lunar" type="info" size="small">农历</el-tag>
-                    </template>
-                    <template #description>
-                      <span class="reminder-date">{{ formatDate(reminder.remind_date) }}</span>
-                    </template>
-                  </el-list-item-meta>
-                </el-list-item>
+                  <div class="reminder-title-row">
+                    <span class="reminder-title">{{ reminder.title }}</span>
+                    <el-tag v-if="reminder.is_lunar" type="info" size="small">农历</el-tag>
+                  </div>
+                  <span class="reminder-date">{{ formatDate(reminder.remind_date) }}</span>
+                </div>
               </div>
             </div>
           </el-tab-pane>
@@ -264,21 +311,16 @@
       </template>
     </el-dialog>
 
-    <PersonForm
-      v-model:visible="showEditPerson"
-      :person-id="personId"
-      @success="handleEditSuccess"
-    />
   </div>
 </template>
 
 <script setup>
-import { ref, onMounted, reactive } from 'vue'
+import { ref, onMounted, reactive, computed } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { User, MapLocation, Edit } from '@element-plus/icons-vue'
-import { getPerson, getPersonEvents, getPersonReminders, getPersonDetail, updatePersonFamily, getPersons } from '@/api/persons'
+import { getPerson, getPersonEvents, getPersonReminders, getPersonDetail, updatePersonFamily, getPersons, updatePerson } from '@/api/persons'
 import { getCountries } from '@/api/countries'
-import PersonForm from '@/components/PersonForm.vue'
+import { ElMessage } from 'element-plus'
 
 const router = useRouter()
 const route = useRoute()
@@ -292,7 +334,23 @@ const activeTab = ref('events')
 const countries = ref([])
 const availableFamilyMembers = ref([])
 const showEditFamily = ref(false)
-const showEditPerson = ref(false)
+
+const isEditing = ref(false)
+const saving = ref(false)
+
+const editForm = reactive({
+  nickname: '',
+  name: '',
+  gender: null,
+  birth_date: '',
+  is_deceased: false,
+  death_date: '',
+  country: '',
+  hometown: '',
+  residence: '',
+  notes: '',
+  customFields: []
+})
 
 const familyForm = reactive({
   father_id: null,
@@ -317,9 +375,20 @@ const formatDate = (dateString) => {
 
 const getCountryName = (countryCode) => {
   if (!countryCode) return '-'
-  const country = countries.value.find(c => c.code === countryCode)
+  const country = countries.value[countryCode]
   return country ? country.name : countryCode
 }
+
+const customFieldsList = computed(() => {
+  const fields = []
+  const customData = personInfo.value.custom_fields || {}
+  for (const key in customData) {
+    if (key !== 'notes') {
+      fields.push({ name: key, value: customData[key] })
+    }
+  }
+  return fields
+})
 
 const navigateToPerson = (id) => {
   router.push(`/persons/${id}`)
@@ -329,13 +398,79 @@ const goBack = () => {
   router.back()
 }
 
-const editPerson = () => {
-  showEditPerson.value = true
+const startEdit = () => {
+  const p = personInfo.value
+  editForm.nickname = p.nickname || ''
+  editForm.name = p.last_name ? p.last_name + p.first_name : ''
+  editForm.gender = p.gender || null
+  editForm.birth_date = p.birth_date || ''
+  editForm.is_deceased = !!p.death_date
+  editForm.death_date = p.death_date || ''
+  editForm.country = p.country || ''
+  editForm.hometown = p.hometown || ''
+  editForm.residence = p.residence || ''
+  editForm.notes = p.custom_fields?.notes || ''
+  
+  const customFieldsData = p.custom_fields || {}
+  const fields = []
+  for (const key in customFieldsData) {
+    if (key !== 'notes') {
+      fields.push({ name: key, value: customFieldsData[key] })
+    }
+  }
+  editForm.customFields = fields.length > 0 ? fields : [{ name: '', value: '' }]
+  isEditing.value = true
 }
 
-const handleEditSuccess = async () => {
-  showEditPerson.value = false
-  await loadData()
+const cancelEdit = () => {
+  isEditing.value = false
+}
+
+const saveEdit = async () => {
+  saving.value = true
+  try {
+    const name = editForm.name || ''
+    
+    const custom_fields = {}
+    if (editForm.notes) {
+      custom_fields.notes = editForm.notes
+    }
+    editForm.customFields.forEach(field => {
+      if (field.name.trim()) {
+        custom_fields[field.name.trim()] = field.value.trim()
+      }
+    })
+    
+    const data = {
+      nickname: editForm.nickname || null,
+      last_name: name.charAt(0) || null,
+      first_name: name.slice(1) || null,
+      gender: editForm.gender,
+      birth_date: editForm.birth_date || null,
+      death_date: editForm.is_deceased ? editForm.death_date || null : null,
+      country: editForm.country || null,
+      hometown: editForm.hometown || null,
+      residence: editForm.residence || null,
+      custom_fields: Object.keys(custom_fields).length > 0 ? custom_fields : null
+    }
+    
+    await updatePerson(personId, data)
+    ElMessage.success('保存成功')
+    isEditing.value = false
+    await loadData()
+  } catch (error) {
+    ElMessage.error('保存失败')
+  } finally {
+    saving.value = false
+  }
+}
+
+const addCustomField = () => {
+  editForm.customFields.push({ name: '', value: '' })
+}
+
+const removeCustomField = (index) => {
+  editForm.customFields.splice(index, 1)
 }
 
 const getMemberName = (memberId) => {
@@ -506,6 +641,51 @@ onMounted(async () => {
   font-weight: 500;
 }
 
+.info-row .edit-input {
+  width: 200px;
+}
+
+.info-row .edit-textarea {
+  width: 300px;
+}
+
+.custom-fields-view {
+  max-width: 300px;
+}
+
+.custom-field-item {
+  display: flex;
+  margin-bottom: 4px;
+}
+
+.custom-field-name {
+  color: #999;
+  margin-right: 8px;
+}
+
+.custom-field-value {
+  color: #333;
+}
+
+.custom-fields-edit {
+  max-width: 300px;
+}
+
+.custom-field-row {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  margin-bottom: 8px;
+}
+
+.custom-field-name {
+  flex: 1;
+}
+
+.custom-field-value {
+  flex: 2;
+}
+
 .relations-section {
   background: white;
   border-radius: 12px;
@@ -659,10 +839,15 @@ onMounted(async () => {
   border-bottom: none;
 }
 
+.reminder-title-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
 .reminder-title {
   font-size: 14px;
   font-weight: 500;
-  margin-right: 8px;
 }
 
 .reminder-date {
