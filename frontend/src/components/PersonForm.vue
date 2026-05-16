@@ -14,15 +14,15 @@
       <el-form-item label="姓氏" prop="last_name">
         <el-input v-model="form.last_name" placeholder="请输入姓氏" />
       </el-form-item>
-      
+
       <el-form-item label="名字" prop="first_name">
         <el-input v-model="form.first_name" placeholder="请输入名字" />
       </el-form-item>
-      
+
       <el-form-item label="昵称" prop="nickname">
         <el-input v-model="form.nickname" placeholder="请输入昵称" />
       </el-form-item>
-      
+
       <el-form-item label="性别" prop="gender">
         <el-radio-group v-model="form.gender">
           <el-radio :label="1">男</el-radio>
@@ -30,7 +30,7 @@
           <el-radio :label="0">未知</el-radio>
         </el-radio-group>
       </el-form-item>
-      
+
       <el-form-item label="出生日期" prop="birth_date">
         <el-date-picker
           v-model="form.birth_date"
@@ -40,24 +40,37 @@
           style="width: 100%"
         />
       </el-form-item>
-      
+
       <el-form-item label="国家" prop="country">
-        <el-input v-model="form.country" placeholder="请输入国家" />
+        <el-select
+          v-model="form.country"
+          placeholder="请选择国家"
+          filterable
+          clearable
+          style="width: 100%"
+        >
+          <el-option
+            v-for="(info, code) in countries"
+            :key="code"
+            :label="`${info.flag} ${info.name}`"
+            :value="code"
+          />
+        </el-select>
       </el-form-item>
-      
+
       <el-form-item label="家乡" prop="hometown">
         <el-input v-model="form.hometown" placeholder="请输入家乡" />
       </el-form-item>
-      
+
       <el-form-item label="居住地" prop="residence">
         <el-input v-model="form.residence" placeholder="请输入居住地" />
       </el-form-item>
-      
+
       <el-form-item label="标记为我自己">
         <el-switch v-model="form.is_me" />
       </el-form-item>
     </el-form>
-    
+
     <template #footer>
       <el-button @click="handleClose">取消</el-button>
       <el-button type="primary" :loading="loading" @click="handleSubmit">
@@ -68,9 +81,10 @@
 </template>
 
 <script setup>
-import { ref, computed, watch } from 'vue'
+import { ref, computed, watch, onMounted } from 'vue'
 import { ElMessage } from 'element-plus'
 import { getPerson, createPerson, updatePerson } from '@/api/persons'
+import { getCountries } from '@/api/countries'
 
 const props = defineProps({
   visible: {
@@ -87,6 +101,7 @@ const emit = defineEmits(['update:visible', 'success'])
 
 const formRef = ref(null)
 const loading = ref(false)
+const countries = ref({})
 const form = ref({
   first_name: '',
   last_name: '',
@@ -115,9 +130,17 @@ const dialogVisible = computed({
 
 const isEdit = computed(() => props.personId !== null)
 
+const loadCountries = async () => {
+  try {
+    countries.value = await getCountries()
+  } catch (error) {
+    console.error('加载国家列表失败:', error)
+  }
+}
+
 const loadPerson = async () => {
   if (!props.personId) return
-  
+
   try {
     const data = await getPerson(props.personId)
     form.value = {
@@ -139,7 +162,7 @@ const loadPerson = async () => {
 const handleSubmit = async () => {
   const valid = await formRef.value.validate()
   if (!valid) return
-  
+
   loading.value = true
   try {
     const data = { ...form.value }
@@ -148,7 +171,7 @@ const handleSubmit = async () => {
         data[key] = null
       }
     })
-    
+
     if (isEdit.value) {
       await updatePerson(props.personId, data)
       ElMessage.success('更新成功')
@@ -184,5 +207,9 @@ watch(() => props.visible, (val) => {
   if (val) {
     loadPerson()
   }
+})
+
+onMounted(() => {
+  loadCountries()
 })
 </script>
