@@ -142,11 +142,18 @@ const handleSubmit = async () => {
   
   loading.value = true
   try {
+    const data = { ...form.value }
+    Object.keys(data).forEach(key => {
+      if (data[key] === '') {
+        data[key] = null
+      }
+    })
+    
     if (isEdit.value) {
-      await updatePerson(props.personId, form.value)
+      await updatePerson(props.personId, data)
       ElMessage.success('更新成功')
     } else {
-      await createPerson(form.value)
+      await createPerson(data)
       ElMessage.success('创建成功')
     }
     emit('success')
