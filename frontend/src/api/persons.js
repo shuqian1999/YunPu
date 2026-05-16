@@ -31,3 +31,11 @@ export const getPersonReminders = (id) => {
 export const getPersonRelations = (id) => {
   return request.get(`/persons/${id}/relations`)
 }
+
+export const getPersonDetail = (id) => {
+  return request.get(`/persons/${id}/detail`)
+}
+
+export const updatePersonFamily = (id, data) => {
+  return request.put(`/persons/${id}/family`, data)
+}

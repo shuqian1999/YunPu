@@ -185,7 +185,7 @@ import { VueFlow } from '@vue-flow/core'
 import { Background } from '@vue-flow/background'
 import { Controls } from '@vue-flow/controls'
 import { Refresh, Plus, Close } from '@element-plus/icons-vue'
-import { getFamilyTree, addFamilyRelation } from '@/api/family'
+import { getFamilyTree, addFamilyRelation, getRelationsToMe } from '@/api/family'
 import { getPersons } from '@/api/persons'
 
 const router = useRouter()
@@ -336,9 +336,10 @@ const calculateLayout = (nodeList, edgeList) => {
 
 const loadTree = async () => {
   try {
-    const [treeRes, personsRes] = await Promise.all([
+    const [treeRes, personsRes, relationsRes] = await Promise.all([
       getFamilyTree(),
-      getPersons()
+      getPersons(),
+      getRelationsToMe()
     ])
     
     const newEdges = treeRes.edges.map(edge => ({
@@ -372,6 +373,8 @@ const loadTree = async () => {
       id: p.id,
       name: p.nickname || (p.last_name + p.first_name)
     }))
+    
+    relationsToMe.value = relationsRes
     
     localEdges.value = newEdges
     localNodes.value = positionedNodes

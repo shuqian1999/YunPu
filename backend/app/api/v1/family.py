@@ -77,6 +77,43 @@ def get_calculated_relations(
     ]
 
 
+@router.get("/relations-to-me")
+def get_relations_to_me(
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """获取所有家族成员与当前用户('我')的关系"""
+    me_person = db.query(Person).filter(
+        Person.user_id == current_user.id,
+        Person.is_me == True
+    ).first()
+    
+    if not me_person:
+        return []
+    
+    me_member = db.query(FamilyMember).filter(
+        FamilyMember.user_id == current_user.id,
+        FamilyMember.person_id == me_person.id
+    ).first()
+    
+    if not me_member:
+        return []
+    
+    relations = db.query(FamilyCalculatedRelation).filter(
+        FamilyCalculatedRelation.user_id == current_user.id
+    ).all()
+    
+    return [
+        {
+            "person_id": relation.person_id,
+            "relation_name": relation.relation_name,
+            "relation_level": relation.relation_level,
+            "is_blood": relation.is_blood
+        }
+        for relation in relations
+    ]
+
+
 @router.post("/recalculate")
 def recalculate_relations(
     current_user: User = Depends(get_current_user),

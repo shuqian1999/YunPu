@@ -41,3 +41,10 @@ export const addFamilyRelation = (parentPersonId, childPersonId, parentType, rel
     }
   })
 }
+
+export const getRelationsToMe = () => {
+  return request({
+    url: '/family/relations-to-me',
+    method: 'get'
+  })
+}
