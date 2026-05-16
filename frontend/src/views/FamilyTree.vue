@@ -193,7 +193,7 @@
       </div>
     </div>
 
-    <el-dialog title="添加家庭关系" :visible="showAddRelation" @close="showAddRelation = false">
+    <el-dialog title="添加家庭关系" v-model="showAddRelation">
       <el-form :model="relationForm" label-width="80px">
         <el-form-item label="父/母亲">
           <el-select v-model="relationForm.parent_person_id" placeholder="选择父/母亲">
@@ -387,10 +387,10 @@ const loadTree = async () => {
       getPersons()
     ])
     
-    nodes.value = treeRes.data.nodes
-    edges.value = treeRes.data.edges
+    nodes.value = treeRes.nodes
+    edges.value = treeRes.edges
     
-    availablePersons.value = personsRes.data.map(p => ({
+    availablePersons.value = personsRes.map(p => ({
       id: p.id,
       name: p.nickname || (p.last_name + p.first_name)
     }))
@@ -447,7 +447,9 @@ const editPerson = (personId) => {
 }
 
 const addRelation = () => {
+  console.log('addRelation clicked, showAddRelation before:', showAddRelation.value)
   showAddRelation.value = true
+  console.log('addRelation clicked, showAddRelation after:', showAddRelation.value)
 }
 
 const submitRelation = async () => {

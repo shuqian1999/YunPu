@@ -39,7 +39,6 @@ def get_family_tree(
                 "gender": person.gender,
                 "birth_date": person.birth_date.isoformat() if person.birth_date else None,
                 "death_date": person.death_date.isoformat() if person.death_date else None,
-                "avatar_url": person.avatar_url,
                 "is_me": person.is_me
             })
     
