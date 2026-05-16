@@ -1,5 +1,6 @@
 from sqlalchemy import Column, Integer, String, Date, Boolean, DateTime, JSON
 from sqlalchemy.sql import func
+from sqlalchemy.orm import relationship
 from app.models.base import Base
 
 
@@ -22,3 +23,6 @@ class Person(Base):
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), onupdate=func.now())
     last_contact_at = Column(DateTime(timezone=True))
+
+    events = relationship("Event", back_populates="person")
+    reminders = relationship("Reminder", back_populates="person")

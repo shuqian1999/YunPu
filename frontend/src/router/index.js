@@ -1,5 +1,7 @@
 import { createRouter, createWebHistory } from 'vue-router'
 import Login from '../views/user/Login.vue'
+import Dashboard from '../views/Dashboard.vue'
+import Persons from '../views/Persons.vue'
 
 const routes = [
   {
@@ -9,8 +11,20 @@ const routes = [
     meta: { requiresAuth: false }
   },
   {
+    path: '/dashboard',
+    name: 'Dashboard',
+    component: Dashboard,
+    meta: { requiresAuth: true }
+  },
+  {
+    path: '/persons',
+    name: 'Persons',
+    component: Persons,
+    meta: { requiresAuth: true }
+  },
+  {
     path: '/',
-    redirect: '/login'
+    redirect: '/dashboard'
   }
 ]
 
