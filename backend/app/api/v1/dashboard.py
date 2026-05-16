@@ -50,6 +50,13 @@ def get_dashboard_events(
     
     result = []
     for event in events:
+        person_name = None
+        if event.person:
+            if event.person.nickname:
+                person_name = event.person.nickname
+            elif event.person.last_name or event.person.first_name:
+                person_name = f"{event.person.last_name or ''}{event.person.first_name or ''}"
+        
         result.append({
             "id": event.id,
             "title": event.title,
@@ -59,7 +66,7 @@ def get_dashboard_events(
             "event_type": event.event_type.name if event.event_type else None,
             "event_type_color": event.event_type.color if event.event_type else None,
             "person_id": event.person_id,
-            "person_name": event.person.nickname if event.person else None
+            "person_name": person_name
         })
     
     return result
@@ -83,13 +90,20 @@ def get_dashboard_reminders(
     
     result = []
     for reminder in reminders:
+        person_name = None
+        if reminder.person:
+            if reminder.person.nickname:
+                person_name = reminder.person.nickname
+            elif reminder.person.last_name or reminder.person.first_name:
+                person_name = f"{reminder.person.last_name or ''}{reminder.person.first_name or ''}"
+        
         result.append({
             "id": reminder.id,
             "title": reminder.title,
             "remind_date": reminder.remind_date.isoformat(),
             "is_lunar": reminder.is_lunar,
             "person_id": reminder.person_id,
-            "person_name": reminder.person.nickname if reminder.person else None
+            "person_name": person_name
         })
     
     return result
