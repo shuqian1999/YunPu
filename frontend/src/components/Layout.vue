@@ -18,7 +18,7 @@
         </el-dropdown>
       </div>
     </el-header>
-    
+
     <el-container class="main-container">
       <el-aside width="200px" class="layout-aside">
         <el-menu
@@ -35,12 +35,12 @@
             <span>人物管理</span>
           </el-menu-item>
           <el-menu-item index="/family/tree">
-            <el-icon><Tree /></el-icon>
+            <el-icon><Guide /></el-icon>
             <span>家族树</span>
           </el-menu-item>
         </el-menu>
       </el-aside>
-      
+
       <el-main class="layout-main">
         <router-view />
       </el-main>
@@ -52,7 +52,7 @@
 import { computed } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { ElMessage } from 'element-plus'
-import { User, Odometer, Tree } from '@element-plus/icons-vue'
+import { User, Odometer, Guide } from '@element-plus/icons-vue'
 
 const router = useRouter()
 const route = useRoute()
@@ -107,7 +107,7 @@ const handleCommand = (command) => {
   padding: 8px 12px;
   border-radius: 4px;
   transition: background-color 0.3s;
-  
+
   &:hover {
     background-color: #F5F7FA;
   }

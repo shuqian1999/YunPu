@@ -12,10 +12,10 @@
     <div class="detail-content">
       <div class="info-section">
         <div class="avatar-container">
-          <img 
-            v-if="personInfo.avatar_url" 
-            :src="personInfo.avatar_url" 
-            class="avatar" 
+          <img
+            v-if="personInfo.avatar_url"
+            :src="personInfo.avatar_url"
+            class="avatar"
             alt="头像"
           />
           <div v-else class="avatar-placeholder">
@@ -24,10 +24,10 @@
             </el-icon>
           </div>
           <div v-if="personInfo.death_date" class="deceased-marker">
-            <el-icon :size="16"><Skull /></el-icon>
+            <span>逝</span>
           </div>
         </div>
-        
+
         <div class="basic-info">
           <div class="info-row">
             <span class="label">出生日期</span>
@@ -67,9 +67,9 @@
             <h4>父母</h4>
             <div v-if="relations.parents.length === 0" class="empty">暂无父母信息</div>
             <div v-else class="relation-list">
-              <div 
-                v-for="parent in relations.parents" 
-                :key="parent.id" 
+              <div
+                v-for="parent in relations.parents"
+                :key="parent.id"
                 class="relation-item"
                 @click="navigateToPerson(parent.person_id)"
               >
@@ -83,14 +83,14 @@
               </div>
             </div>
           </div>
-          
+
           <div class="relation-group">
             <h4>子女</h4>
             <div v-if="relations.children.length === 0" class="empty">暂无子女信息</div>
             <div v-else class="relation-list">
-              <div 
-                v-for="child in relations.children" 
-                :key="child.id" 
+              <div
+                v-for="child in relations.children"
+                :key="child.id"
                 class="relation-item"
                 @click="navigateToPerson(child.person_id)"
               >
@@ -114,8 +114,8 @@
               <div v-if="events.length === 0" class="empty">暂无事件记录</div>
               <div v-else class="event-list">
                 <el-timeline>
-                  <el-timeline-item 
-                    v-for="event in events" 
+                  <el-timeline-item
+                    v-for="event in events"
                     :key="event.id"
                     :timestamp="formatDate(event.event_date)"
                     placement="top"
@@ -123,8 +123,8 @@
                     <el-card class="event-card" :shadow="false">
                       <div class="event-header">
                         <span class="event-title">{{ event.title }}</span>
-                        <el-tag 
-                          :color="event.event_type_color" 
+                        <el-tag
+                          :color="event.event_type_color"
                           size="small"
                           class="event-type-tag"
                         >
@@ -142,13 +142,13 @@
               </div>
             </div>
           </el-tab-pane>
-          
+
           <el-tab-pane label="提醒事项" name="reminders">
             <div class="tab-content">
               <div v-if="reminders.length === 0" class="empty">暂无提醒事项</div>
               <div v-else class="reminder-list">
-                <el-list-item 
-                  v-for="reminder in reminders" 
+                <el-list-item
+                  v-for="reminder in reminders"
                   :key="reminder.id"
                   class="reminder-item"
                 >
@@ -174,7 +174,7 @@
 <script setup>
 import { ref, onMounted, computed } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
-import { User, Skull, MapLocation } from '@element-plus/icons-vue'
+import { User, MapLocation } from '@element-plus/icons-vue'
 import { getPerson, getPersonEvents, getPersonReminders, getPersonRelations } from '@/api/persons'
 import { getCountries } from '@/api/countries'
 
@@ -222,7 +222,7 @@ onMounted(async () => {
       getPersonRelations(personId),
       getCountries()
     ])
-    
+
     personInfo.value = personRes.data
     events.value = eventsRes.data
     reminders.value = remindersRes.data
@@ -301,6 +301,7 @@ onMounted(async () => {
   align-items: center;
   justify-content: center;
   color: white;
+  font-size: 12px;
 }
 
 .basic-info {
