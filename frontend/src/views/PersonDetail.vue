@@ -127,10 +127,10 @@
         </div>
         <div class="relations-content">
           <div class="relation-group">
-            <h4>父亲</h4>
-            <template v-if="fathers.length > 0">
+            <h4>父母</h4>
+            <template v-if="family.parents && family.parents.length > 0">
               <div
-                v-for="parent in fathers"
+                v-for="parent in family.parents"
                 :key="parent.id"
                 class="relation-item clickable"
                 @click="navigateToPerson(parent.person_id)"
@@ -141,25 +141,25 @@
                 </div>
               </div>
             </template>
-            <div v-else class="empty">暂无父亲信息</div>
+            <div v-else class="empty">暂无父母信息</div>
           </div>
 
           <div class="relation-group">
-            <h4>母亲</h4>
-            <template v-if="mothers.length > 0">
+            <h4>配偶</h4>
+            <template v-if="family.spouses && family.spouses.length > 0">
               <div
-                v-for="parent in mothers"
-                :key="parent.id"
+                v-for="spouse in family.spouses"
+                :key="spouse.id"
                 class="relation-item clickable"
-                @click="navigateToPerson(parent.person_id)"
+                @click="navigateToPerson(spouse.person_id)"
               >
-                <div class="relation-name">{{ parent.name }}</div>
+                <div class="relation-name">{{ spouse.name }}</div>
                 <div class="relation-type">
-                  <span class="nature-tag">{{ getRelationLabel(parent) }}</span>
+                  <span class="nature-tag">{{ getSpouseRelationLabel(spouse) }}</span>
                 </div>
               </div>
             </template>
-            <div v-else class="empty">暂无母亲信息</div>
+            <div v-else class="empty">暂无配偶信息</div>
           </div>
 
           <div class="relation-group">
@@ -284,6 +284,40 @@
           </div>
         </el-form-item>
 
+        <el-form-item label="配偶">
+          <div class="multi-relation-list">
+            <div
+              v-for="(spouse, index) in familyForm.spouses"
+              :key="index"
+              class="multi-relation-row"
+            >
+              <el-select v-model="spouse.person_id" placeholder="选择人物" filterable>
+                <el-option
+                  v-for="member in availableFamilyMembers"
+                  :key="member.id"
+                  :label="member.name"
+                  :value="member.id"
+                />
+              </el-select>
+              <el-select v-model="spouse.relation_nature" placeholder="性质">
+                <el-option label="原配" value="qin" />
+                <el-option label="续弦" value="ji" />
+                <el-option label="其他" value="yang" />
+              </el-select>
+              <el-button
+                v-if="familyForm.spouses.length > 1"
+                @click="removeSpouse(index)"
+                text
+                type="danger"
+                size="small"
+              >删除</el-button>
+            </div>
+            <el-button @click="addSpouse" text type="primary" size="small">
+              + 添加配偶
+            </el-button>
+          </div>
+        </el-form-item>
+
         <el-form-item label="子女">
           <div class="multi-relation-list">
             <div
@@ -376,6 +410,15 @@ const getRelationLabel = (parent) => {
   return natureMap[parent.relation_nature] || `${typeLabel}(${parent.relation_nature})`
 }
 
+const getSpouseRelationLabel = (spouse) => {
+  const natureMap = {
+    qin: '原配',
+    ji: '续弦',
+    yang: '其他'
+  }
+  return natureMap[spouse.relation_nature] || spouse.relation_nature
+}
+
 const editForm = reactive({
   nickname: '',
   name: '',
@@ -392,12 +435,14 @@ const editForm = reactive({
 
 const familyForm = reactive({
   parents: [],
+  spouses: [],
   children: []
 })
 
 const usedPersonIds = computed(() => {
   const ids = new Set()
   familyForm.parents.forEach(p => { if (p.person_id) ids.add(p.person_id) })
+  familyForm.spouses.forEach(s => { if (s.person_id) ids.add(s.person_id) })
   familyForm.children.forEach(c => { if (c.person_id) ids.add(c.person_id) })
   return ids
 })
@@ -541,20 +586,35 @@ const removeChild = (index) => {
   familyForm.children.splice(index, 1)
 }
 
+const addSpouse = () => {
+  familyForm.spouses.push({ person_id: null, relation_nature: 'qin' })
+}
+
+const removeSpouse = (index) => {
+  familyForm.spouses.splice(index, 1)
+}
+
 const initFamilyForm = () => {
-  familyForm.parents = family.value.parents.map(p => ({
+  familyForm.parents = family.value.parents ? family.value.parents.map(p => ({
     person_id: p.person_id,
     parent_type: p.parent_type,
     relation_nature: p.relation_nature
-  }))
+  })) : []
   if (familyForm.parents.length === 0) {
     familyForm.parents.push({ person_id: null, parent_type: 'father', relation_nature: 'qin' })
   }
-  familyForm.children = family.value.children.map(c => ({
+  familyForm.spouses = family.value.spouses ? family.value.spouses.map(s => ({
+    person_id: s.person_id,
+    relation_nature: s.relation_nature
+  })) : []
+  if (familyForm.spouses.length === 0) {
+    familyForm.spouses.push({ person_id: null, relation_nature: 'qin' })
+  }
+  familyForm.children = family.value.children ? family.value.children.map(c => ({
     person_id: c.person_id,
     parent_type: c.parent_type,
     relation_nature: c.relation_nature
-  }))
+  })) : []
   if (familyForm.children.length === 0) {
     familyForm.children.push({ person_id: null, parent_type: 'father', relation_nature: 'qin' })
   }
@@ -570,6 +630,13 @@ const submitFamily = async () => {
         relation_nature: p.relation_nature
       }))
 
+    const spousesData = familyForm.spouses
+      .filter(s => s.person_id)
+      .map(s => ({
+        id: s.person_id,
+        relation_nature: s.relation_nature
+      }))
+
     const childrenData = familyForm.children
       .filter(c => c.person_id)
       .map(c => ({
@@ -580,6 +647,7 @@ const submitFamily = async () => {
 
     await updatePersonFamily(personId, {
       parents: parentsData,
+      spouses: spousesData,
       children: childrenData
     })
 

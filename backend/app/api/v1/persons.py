@@ -189,9 +189,10 @@ def get_person_detail(
     
     family = {
         "parents": [],
+        "spouses": [],
         "children": []
     }
-    
+
     if family_member:
         parent_relations = db.query(FamilyRelation).filter(
             FamilyRelation.child_id == family_member.id,
@@ -211,8 +212,31 @@ def get_person_detail(
                         "relation_nature": relation.relation_nature
                     })
         
+        spouse_relations = db.query(FamilyRelation).filter(
+            (
+                (FamilyRelation.parent_id == family_member.id) | 
+                (FamilyRelation.child_id == family_member.id)
+            ),
+            FamilyRelation.parent_type == "spouse",
+            FamilyRelation.user_id == current_user.id
+        ).all()
+        
+        for relation in spouse_relations:
+            spouse_member_id = relation.child_id if relation.parent_id == family_member.id else relation.parent_id
+            spouse_member = db.query(FamilyMember).filter(FamilyMember.id == spouse_member_id).first()
+            if spouse_member:
+                spouse_person = db.query(Person).filter(Person.id == spouse_member.person_id).first()
+                if spouse_person:
+                    family["spouses"].append({
+                        "id": spouse_member.id,
+                        "person_id": spouse_member.person_id,
+                        "name": spouse_person.nickname or f"{spouse_person.last_name}{spouse_person.first_name}",
+                        "relation_nature": relation.relation_nature
+                    })
+        
         children_relations = db.query(FamilyRelation).filter(
             FamilyRelation.parent_id == family_member.id,
+            FamilyRelation.parent_type != "spouse",
             FamilyRelation.user_id == current_user.id
         ).all()
         
@@ -294,6 +318,26 @@ def update_person_family(
                     child_id=family_member.id,
                     parent_type=parent.get("parent_type", "father"),
                     relation_nature=parent.get("relation_nature", "qin")
+                )
+                db.add(relation)
+    
+    if family_data.get("spouses"):
+        for spouse in family_data["spouses"]:
+            spouse_member = db.query(FamilyMember).filter(
+                FamilyMember.person_id == spouse["id"],
+                FamilyMember.user_id == current_user.id
+            ).first()
+            if not spouse_member:
+                spouse_member = FamilyMember(user_id=current_user.id, person_id=spouse["id"])
+                db.add(spouse_member)
+                db.flush()
+            if spouse_member:
+                relation = FamilyRelation(
+                    user_id=current_user.id,
+                    parent_id=family_member.id,
+                    child_id=spouse_member.id,
+                    parent_type="spouse",
+                    relation_nature=spouse.get("relation_nature", "qin")
                 )
                 db.add(relation)
     
