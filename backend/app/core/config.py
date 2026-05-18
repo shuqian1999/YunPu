@@ -5,7 +5,7 @@ class Settings(BaseSettings):
     database_url: str = "sqlite:///./yunpu.db"
     secret_key: str = "your-secret-key-here"
     algorithm: str = "HS256"
-    access_token_expire_minutes: int = 60
+    access_token_expire_minutes: int = 43200
     refresh_token_expire_days: int = 7
     app_name: str = "云谱"
     app_version: str = "1.0.0"
