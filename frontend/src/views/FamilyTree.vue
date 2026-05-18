@@ -9,6 +9,14 @@
           <el-icon><Refresh /></el-icon>
           刷新
         </el-button>
+        <el-button @click="handleRecalculateRelations" type="warning" size="small">
+          <el-icon><Edit /></el-icon>
+          重新计算关系
+        </el-button>
+        <el-button @click="addAllPersons" type="info" size="small">
+          <el-icon><Document /></el-icon>
+          导入所有人物
+        </el-button>
         <el-button @click="addRelation" type="success" size="small">
           <el-icon><Plus /></el-icon>
           添加关系
@@ -184,9 +192,10 @@ import { useRouter } from 'vue-router'
 import { VueFlow } from '@vue-flow/core'
 import { Background } from '@vue-flow/background'
 import { Controls } from '@vue-flow/controls'
-import { Refresh, Plus, Close } from '@element-plus/icons-vue'
-import { getFamilyTree, addFamilyRelation, getRelationsToMe } from '@/api/family'
+import { Refresh, Plus, Close, Edit, Document } from '@element-plus/icons-vue'
+import { getFamilyTree, addFamilyRelation, getRelationsToMe, recalculateRelations, addFamilyMember } from '@/api/family'
 import { getPersons } from '@/api/persons'
+import { ElMessage } from 'element-plus'
 
 const router = useRouter()
 
@@ -249,6 +258,43 @@ const refreshTree = async () => {
   await loadTree()
 }
 
+const handleRecalculateRelations = async () => {
+  try {
+    await recalculateRelations()
+    ElMessage.success('关系重新计算成功')
+    await loadTree()
+  } catch (error) {
+    console.error('重新计算关系失败:', error)
+    ElMessage.error('重新计算关系失败')
+  }
+}
+
+const addAllPersons = async () => {
+  try {
+    const personsRes = await getPersons()
+    const treeRes = await getFamilyTree()
+    const existingMemberIds = new Set(treeRes.nodes.map(n => n.person_id))
+    
+    console.log('=== 导入人物 ===')
+    console.log('现有人物:', personsRes)
+    console.log('已在家族中的:', existingMemberIds)
+    
+    for (const person of personsRes) {
+      if (!existingMemberIds.has(person.id)) {
+        console.log('添加人物:', person)
+        await addFamilyMember(person.id)
+      }
+    }
+    
+    await handleRecalculateRelations()
+    ElMessage.success('导入人物并重新计算关系成功')
+    await loadTree()
+  } catch (error) {
+    console.error('导入人物失败:', error)
+    ElMessage.error('导入人物失败')
+  }
+}
+
 const goBack = () => {
   router.back()
 }
@@ -256,82 +302,154 @@ const goBack = () => {
 const calculateLayout = (nodeList, edgeList) => {
   if (nodeList.length === 0) return nodeList
 
-  const levelMap = {}
-  const meNode = nodeList.find(n => n.data.isMe)
-  
-  if (meNode) {
-    levelMap[meNode.id] = { level: 0, pos: 0 }
-  }
-  
-  const visited = new Set()
-  const queue = meNode ? [meNode] : nodeList.slice(0, 1)
-  
-  while (queue.length > 0) {
-    const current = queue.shift()
-    if (visited.has(current.id)) continue
-    visited.add(current.id)
-    
-    const currentLevel = levelMap[current.id]?.level || 0
-    
-    const children = edgeList
-      .filter(e => e.source === current.id)
-      .map(e => nodeList.find(n => n.id === e.target))
-      .filter(Boolean)
-    
-    const parents = edgeList
-      .filter(e => e.target === current.id)
-      .map(e => nodeList.find(n => n.id === e.source))
-      .filter(Boolean)
-    
-    children.forEach((child, index) => {
-      if (!levelMap[child.id]) {
-        levelMap[child.id] = { 
-          level: currentLevel + 1, 
-          pos: index - (children.length - 1) / 2 
-        }
-      }
-      queue.push(child)
-    })
-    
-    parents.forEach((parent, index) => {
-      if (!levelMap[parent.id]) {
-        levelMap[parent.id] = { 
-          level: currentLevel - 1, 
-          pos: index - (parents.length - 1) / 2 
-        }
-      }
-      queue.push(parent)
-    })
-  }
-  
-  const levels = {}
-  Object.keys(levelMap).forEach(id => {
-    const level = levelMap[id].level
-    if (!levels[level]) levels[level] = []
-    levels[level].push({ id, pos: levelMap[id].pos })
-  })
-  
-  const levelNumbers = Object.keys(levels).map(Number).sort((a, b) => a - b)
+  console.log('=== 布局计算 ===')
+  console.log('Node count:', nodeList.length)
+  console.log('Edge count:', edgeList.length)
+
   const NODE_WIDTH = 180
   const NODE_HEIGHT = 120
-  const VERTICAL_SPACING = 100
-  const HORIZONTAL_SPACING = 60
+  const VERTICAL_SPACING = 150
+  const HORIZONTAL_SPACING = 100
+
+  const levelMap = {}
+  const meNode = nodeList.find(n => n.data.isMe)
+  const startNode = meNode || nodeList[0]
   
-  return nodeList.map(node => {
-    const level = levelMap[node.id]?.level || 0
-    const levelNodes = levels[level] || []
-    const index = levelNodes.findIndex(n => n.id === node.id)
-    const totalWidth = levelNodes.length * NODE_WIDTH + (levelNodes.length - 1) * HORIZONTAL_SPACING
-    const startX = Math.max(200, window.innerWidth / 2 - totalWidth / 2)
-    
-    return {
-      ...node,
-      position: {
-        x: startX + index * (NODE_WIDTH + HORIZONTAL_SPACING),
-        y: 150 + level * (NODE_HEIGHT + VERTICAL_SPACING)
+  console.log('Start node:', startNode?.data.name, 'isMe:', !!meNode)
+
+  // 初始化起始节点
+  if (startNode) {
+    levelMap[startNode.id] = { level: 0, col: 0 }
+  }
+
+  // 构建关系索引
+  const nodeById = {}
+  nodeList.forEach(n => { nodeById[n.id] = n })
+
+  const edgesByParent = {}
+  const edgesByChild = {}
+  edgeList.forEach(e => {
+    if (!edgesByParent[e.source]) edgesByParent[e.source] = []
+    edgesByParent[e.source].push(e)
+    if (!edgesByChild[e.target]) edgesByChild[e.target] = []
+    edgesByChild[e.target].push(e)
+  })
+
+  // BFS 遍历
+  const visited = new Set()
+  const queue = [startNode]
+
+  while (queue.length > 0) {
+    const current = queue.shift()
+    if (!current || visited.has(current.id)) continue
+    visited.add(current.id)
+
+    const currentInfo = levelMap[current.id]
+    if (!currentInfo) continue
+
+    const currentLevel = currentInfo.level
+    const currentCol = currentInfo.col
+
+    // 处理父母 (向上)
+    const parentEdges = edgesByChild[current.id] || []
+    const parents = parentEdges
+      .map(e => ({
+        node: nodeById[e.source],
+        parentType: e.parentType
+      }))
+      .filter(item => item.node)
+
+    // 母亲放左边，父亲放右边
+    const mother = parents.find(p => p.parentType === 'mother')
+    const father = parents.find(p => p.parentType === 'father')
+    const sortedParents = [mother, father].filter(Boolean)
+
+    sortedParents.forEach((parentItem, index) => {
+      const parent = parentItem.node
+      if (!levelMap[parent.id]) {
+        const offset = index - (sortedParents.length - 1) / 2
+        levelMap[parent.id] = {
+          level: currentLevel - 1,
+          col: currentCol + offset
+        }
+        queue.push(parent)
       }
+    })
+
+    // 处理子女 (向下)
+    const childEdges = edgesByParent[current.id] || []
+    const children = childEdges
+      .map(e => ({
+        node: nodeById[e.target],
+        parentType: e.parentType
+      }))
+      .filter(item => item.node)
+
+    children.forEach((childItem, index) => {
+      const child = childItem.node
+      if (!levelMap[child.id]) {
+        const offset = index - (children.length - 1) / 2
+        levelMap[child.id] = {
+          level: currentLevel + 1,
+          col: currentCol + offset
+        }
+        queue.push(child)
+      }
+    })
+  }
+
+  // 为没有关系的节点分配位置
+  let orphanCol = 0
+  nodeList.forEach(node => {
+    if (!levelMap[node.id]) {
+      levelMap[node.id] = { level: 0, col: orphanCol++ }
     }
   })
+
+  // 构建层级结构
+  const levels = {}
+  Object.keys(levelMap).forEach(id => {
+    const info = levelMap[id]
+    const level = info.level
+    if (!levels[level]) levels[level] = []
+    levels[level].push({ id, col: info.col })
+  })
+
+  // 按列排序
+  Object.keys(levels).forEach(level => {
+    levels[level].sort((a, b) => a.col - b.col)
+  })
+
+  const levelNumbers = Object.keys(levels).map(Number).sort((a, b) => a - b)
+  const minLevel = levelNumbers.length > 0 ? Math.min(...levelNumbers) : 0
+
+  // 计算位置
+  const result = nodeList.map(node => {
+    const info = levelMap[node.id] || { level: 0, col: 0 }
+    const adjustedLevel = info.level - minLevel
+    const levelNodes = levels[info.level] || []
+
+    // 查找当前层级的列范围
+    const levelCols = levelNodes.map(n => n.col)
+    const minCol = levelCols.length > 0 ? Math.min(...levelCols) : 0
+    const maxCol = levelCols.length > 0 ? Math.max(...levelCols) : 0
+    
+    // 计算当前层级的总宽度和中心
+    const levelWidth = (maxCol - minCol) * (NODE_WIDTH + HORIZONTAL_SPACING) + NODE_WIDTH
+    const centerX = window.innerWidth / 2 - levelWidth / 2
+
+    // 计算节点位置
+    const x = centerX + (info.col - minCol) * (NODE_WIDTH + HORIZONTAL_SPACING)
+    const y = 150 + adjustedLevel * (NODE_HEIGHT + VERTICAL_SPACING)
+
+    return {
+      ...node,
+      position: { x, y }
+    }
+  })
+
+  console.log('Layout result:', result)
+  return result
 }
 
 const loadTree = async () => {
@@ -342,10 +460,16 @@ const loadTree = async () => {
       getRelationsToMe()
     ])
     
+    console.log('=== 家谱数据 ===')
+    console.log('Nodes:', treeRes.nodes)
+    console.log('Edges:', treeRes.edges)
+    
     const newEdges = treeRes.edges.map(edge => ({
       id: String(edge.id),
       source: String(edge.source),
       target: String(edge.target),
+      parentType: edge.parent_type,
+      relationNature: edge.relation_nature,
       animated: true,
       style: {
         stroke: edge.relation_nature === 'qin' ? '#409EFF' : '#999',
@@ -368,6 +492,8 @@ const loadTree = async () => {
     }))
     
     const positionedNodes = calculateLayout(initialNodes, newEdges)
+    
+    console.log('Positioned Nodes:', positionedNodes)
     
     availablePersons.value = personsRes.map(p => ({
       id: p.id,
