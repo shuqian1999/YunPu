@@ -128,27 +128,37 @@
         <div class="relations-content">
           <div class="relation-group">
             <h4>父亲</h4>
-            <div v-if="family.father" class="relation-item clickable" @click="navigateToPerson(family.father.person_id)">
-              <div class="relation-name">{{ family.father.name }}</div>
-              <div class="relation-type">
-                <span v-if="family.father.relation_nature !== 'qin'" class="nature-tag">
-                  {{ family.father.relation_nature === 'ji' ? '继父' : '义父' }}
-                </span>
+            <template v-if="fathers.length > 0">
+              <div
+                v-for="parent in fathers"
+                :key="parent.id"
+                class="relation-item clickable"
+                @click="navigateToPerson(parent.person_id)"
+              >
+                <div class="relation-name">{{ parent.name }}</div>
+                <div class="relation-type">
+                  <span class="nature-tag">{{ getRelationLabel(parent) }}</span>
+                </div>
               </div>
-            </div>
+            </template>
             <div v-else class="empty">暂无父亲信息</div>
           </div>
 
           <div class="relation-group">
             <h4>母亲</h4>
-            <div v-if="family.mother" class="relation-item clickable" @click="navigateToPerson(family.mother.person_id)">
-              <div class="relation-name">{{ family.mother.name }}</div>
-              <div class="relation-type">
-                <span v-if="family.mother.relation_nature !== 'qin'" class="nature-tag">
-                  {{ family.mother.relation_nature === 'ji' ? '继母' : '义母' }}
-                </span>
+            <template v-if="mothers.length > 0">
+              <div
+                v-for="parent in mothers"
+                :key="parent.id"
+                class="relation-item clickable"
+                @click="navigateToPerson(parent.person_id)"
+              >
+                <div class="relation-name">{{ parent.name }}</div>
+                <div class="relation-type">
+                  <span class="nature-tag">{{ getRelationLabel(parent) }}</span>
+                </div>
               </div>
-            </div>
+            </template>
             <div v-else class="empty">暂无母亲信息</div>
           </div>
 
@@ -233,78 +243,87 @@
       </div>
     </div>
 
-    <el-dialog title="编辑家族关系" v-model="showEditFamily" width="500px">
-      <el-form :model="familyForm" label-width="100px">
-        <el-form-item label="父亲">
-          <el-select v-model="familyForm.father_id" placeholder="选择父亲">
-            <el-option 
-              v-for="member in availableFamilyMembers" 
-              :key="member.id" 
-              :label="member.name" 
-              :value="member.id"
-            />
-          </el-select>
-          <el-select 
-            v-if="familyForm.father_id" 
-            v-model="familyForm.father_relation_nature" 
-            placeholder="关系性质"
-          >
-            <el-option label="亲生" value="qin" />
-            <el-option label="继父" value="ji" />
-            <el-option label="义父" value="yi" />
-          </el-select>
-        </el-form-item>
-        
-        <el-form-item label="母亲">
-          <el-select v-model="familyForm.mother_id" placeholder="选择母亲">
-            <el-option 
-              v-for="member in availableFamilyMembers" 
-              :key="member.id" 
-              :label="member.name" 
-              :value="member.id"
-            />
-          </el-select>
-          <el-select 
-            v-if="familyForm.mother_id" 
-            v-model="familyForm.mother_relation_nature" 
-            placeholder="关系性质"
-          >
-            <el-option label="亲生" value="qin" />
-            <el-option label="继母" value="ji" />
-            <el-option label="义母" value="yi" />
-          </el-select>
-        </el-form-item>
-        
-        <el-form-item label="子女">
-          <el-select 
-            v-model="familyForm.children" 
-            multiple 
-            placeholder="选择子女"
-          >
-            <el-option 
-              v-for="member in availableFamilyMembers" 
-              :key="member.id" 
-              :label="member.name" 
-              :value="member.id"
-            />
-          </el-select>
-          <div v-if="familyForm.children.length > 0" class="children-nature">
-            <div 
-              v-for="childId in familyForm.children" 
-              :key="childId"
-              class="child-nature-item"
+    <el-dialog title="编辑家族关系" v-model="showEditFamily" width="560px">
+      <el-form :model="familyForm" label-width="80px">
+        <el-form-item label="父母">
+          <div class="multi-relation-list">
+            <div
+              v-for="(parent, index) in familyForm.parents"
+              :key="index"
+              class="multi-relation-row"
             >
-              <span>{{ getMemberName(childId) }}</span>
-              <el-select v-model="childRelationNatures[childId]">
-                <el-option label="亲生" value="qin" />
-                <el-option label="继" value="ji" />
-                <el-option label="义" value="yi" />
+              <el-select v-model="parent.person_id" placeholder="选择人物" filterable>
+                <el-option
+                  v-for="member in availableFamilyMembers"
+                  :key="member.id"
+                  :label="member.name"
+                  :value="member.id"
+                />
               </el-select>
+              <el-select v-model="parent.parent_type" placeholder="关系">
+                <el-option label="父亲" value="father" />
+                <el-option label="母亲" value="mother" />
+              </el-select>
+              <el-select v-model="parent.relation_nature" placeholder="性质">
+                <el-option label="亲生" value="qin" />
+                <el-option label="继亲" value="ji" />
+                <el-option label="养亲" value="yang" />
+                <el-option label="义亲" value="yi" />
+              </el-select>
+              <el-button
+                v-if="familyForm.parents.length > 1"
+                @click="removeParent(index)"
+                text
+                type="danger"
+                size="small"
+              >删除</el-button>
             </div>
+            <el-button @click="addParent" text type="primary" size="small">
+              + 添加父母
+            </el-button>
+          </div>
+        </el-form-item>
+
+        <el-form-item label="子女">
+          <div class="multi-relation-list">
+            <div
+              v-for="(child, index) in familyForm.children"
+              :key="index"
+              class="multi-relation-row"
+            >
+              <el-select v-model="child.person_id" placeholder="选择人物" filterable>
+                <el-option
+                  v-for="member in availableFamilyMembers"
+                  :key="member.id"
+                  :label="member.name"
+                  :value="member.id"
+                />
+              </el-select>
+              <el-select v-model="child.parent_type" placeholder="作为">
+                <el-option label="儿子" value="father" />
+                <el-option label="女儿" value="mother" />
+              </el-select>
+              <el-select v-model="child.relation_nature" placeholder="性质">
+                <el-option label="亲生" value="qin" />
+                <el-option label="继亲" value="ji" />
+                <el-option label="养亲" value="yang" />
+                <el-option label="义亲" value="yi" />
+              </el-select>
+              <el-button
+                v-if="familyForm.children.length > 1"
+                @click="removeChild(index)"
+                text
+                type="danger"
+                size="small"
+              >删除</el-button>
+            </div>
+            <el-button @click="addChild" text type="primary" size="small">
+              + 添加子女
+            </el-button>
           </div>
         </el-form-item>
       </el-form>
-      
+
       <template #footer>
         <el-button @click="showEditFamily = false">取消</el-button>
         <el-button @click="submitFamily" type="primary">保存</el-button>
@@ -315,7 +334,7 @@
 </template>
 
 <script setup>
-import { ref, onMounted, reactive, computed } from 'vue'
+import { ref, onMounted, reactive, computed, watch } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { User, MapLocation, Edit } from '@element-plus/icons-vue'
 import { getPerson, getPersonEvents, getPersonReminders, getPersonDetail, updatePersonFamily, getPersons, updatePerson } from '@/api/persons'
@@ -329,7 +348,7 @@ const personId = parseInt(route.params.id)
 const personInfo = ref({})
 const events = ref([])
 const reminders = ref([])
-const family = ref({ father: null, mother: null, children: [] })
+const family = ref({ parents: [], children: [] })
 const activeTab = ref('events')
 const countries = ref([])
 const availableFamilyMembers = ref([])
@@ -337,6 +356,25 @@ const showEditFamily = ref(false)
 
 const isEditing = ref(false)
 const saving = ref(false)
+
+const fathers = computed(() => {
+  return family.value.parents.filter(p => p.parent_type === 'father')
+})
+
+const mothers = computed(() => {
+  return family.value.parents.filter(p => p.parent_type === 'mother')
+})
+
+const getRelationLabel = (parent) => {
+  const typeLabel = parent.parent_type === 'father' ? '父' : '母'
+  const natureMap = {
+    qin: `亲生${typeLabel}`,
+    ji: `继${typeLabel}`,
+    yang: `养${typeLabel}`,
+    yi: `义${typeLabel}`
+  }
+  return natureMap[parent.relation_nature] || `${typeLabel}(${parent.relation_nature})`
+}
 
 const editForm = reactive({
   nickname: '',
@@ -353,15 +391,24 @@ const editForm = reactive({
 })
 
 const familyForm = reactive({
-  father_id: null,
-  father_relation_nature: 'qin',
-  mother_id: null,
-  mother_relation_nature: 'qin',
-  children: [],
-  children_nature: {}
+  parents: [],
+  children: []
 })
 
-const childRelationNatures = reactive({})
+const usedPersonIds = computed(() => {
+  const ids = new Set()
+  familyForm.parents.forEach(p => { if (p.person_id) ids.add(p.person_id) })
+  familyForm.children.forEach(c => { if (c.person_id) ids.add(c.person_id) })
+  return ids
+})
+
+const availableParentOptions = computed(() => {
+  return availableFamilyMembers.value.filter(m => !usedPersonIds.value.has(m.id))
+})
+
+const availableChildOptions = computed(() => {
+  return availableFamilyMembers.value.filter(m => !usedPersonIds.value.has(m.id))
+})
 
 const formatDate = (dateString) => {
   if (!dateString) return '-'
@@ -478,36 +525,67 @@ const getMemberName = (memberId) => {
   return member ? member.name : '未知'
 }
 
+const addParent = () => {
+  familyForm.parents.push({ person_id: null, parent_type: 'father', relation_nature: 'qin' })
+}
+
+const removeParent = (index) => {
+  familyForm.parents.splice(index, 1)
+}
+
+const addChild = () => {
+  familyForm.children.push({ person_id: null, parent_type: 'father', relation_nature: 'qin' })
+}
+
+const removeChild = (index) => {
+  familyForm.children.splice(index, 1)
+}
+
 const initFamilyForm = () => {
-  familyForm.father_id = family.value.father?.id || null
-  familyForm.father_relation_nature = family.value.father?.relation_nature || 'qin'
-  familyForm.mother_id = family.value.mother?.id || null
-  familyForm.mother_relation_nature = family.value.mother?.relation_nature || 'qin'
-  familyForm.children = family.value.children.map(c => c.id)
-  
-  family.value.children.forEach(child => {
-    childRelationNatures[child.id] = child.relation_nature || 'qin'
-  })
+  familyForm.parents = family.value.parents.map(p => ({
+    person_id: p.person_id,
+    parent_type: p.parent_type,
+    relation_nature: p.relation_nature
+  }))
+  if (familyForm.parents.length === 0) {
+    familyForm.parents.push({ person_id: null, parent_type: 'father', relation_nature: 'qin' })
+  }
+  familyForm.children = family.value.children.map(c => ({
+    person_id: c.person_id,
+    parent_type: c.parent_type,
+    relation_nature: c.relation_nature
+  }))
+  if (familyForm.children.length === 0) {
+    familyForm.children.push({ person_id: null, parent_type: 'father', relation_nature: 'qin' })
+  }
 }
 
 const submitFamily = async () => {
   try {
-    const childrenData = familyForm.children.map(childId => ({
-      id: childId,
-      relation_nature: childRelationNatures[childId] || 'qin'
-    }))
-    
+    const parentsData = familyForm.parents
+      .filter(p => p.person_id)
+      .map(p => ({
+        id: p.person_id,
+        parent_type: p.parent_type,
+        relation_nature: p.relation_nature
+      }))
+
+    const childrenData = familyForm.children
+      .filter(c => c.person_id)
+      .map(c => ({
+        id: c.person_id,
+        parent_type: c.parent_type,
+        relation_nature: c.relation_nature
+      }))
+
     await updatePersonFamily(personId, {
-      father_id: familyForm.father_id,
-      father_relation_nature: familyForm.father_relation_nature,
-      mother_id: familyForm.mother_id,
-      mother_relation_nature: familyForm.mother_relation_nature,
+      parents: parentsData,
       children: childrenData
     })
-    
+
     showEditFamily.value = false
     await loadData()
-    
+
     ElMessage.success('关系更新成功')
   } catch (error) {
     console.error('更新关系失败:', error)
@@ -525,7 +603,7 @@ const loadData = async () => {
       getPersons()
     ])
 
-    personInfo.value = personData.person
+    personInfo.value = personData
     family.value = personData.family
     events.value = eventsData
     reminders.value = remindersData
@@ -542,6 +620,12 @@ const loadData = async () => {
 
 onMounted(async () => {
   await loadData()
+})
+
+watch(showEditFamily, (val) => {
+  if (val) {
+    initFamilyForm()
+  }
 })
 </script>
 
@@ -855,23 +939,21 @@ onMounted(async () => {
   font-size: 13px;
 }
 
-.children-nature {
-  margin-top: 12px;
+.multi-relation-list {
   display: flex;
   flex-direction: column;
   gap: 8px;
+  width: 100%;
 }
 
-.child-nature-item {
+.multi-relation-row {
   display: flex;
-  justify-content: space-between;
+  gap: 8px;
   align-items: center;
-  padding: 8px 12px;
-  background: #f8f9fa;
-  border-radius: 6px;
 }
 
-.child-nature-item span {
-  font-size: 13px;
+.multi-relation-row .el-select {
+  flex: 1;
+  min-width: 0;
 }
 </style>

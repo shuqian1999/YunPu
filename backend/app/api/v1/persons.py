@@ -32,26 +32,6 @@ def get_persons(
     return persons
 
 
-@router.get("/{person_id}", response_model=PersonResponse)
-def get_person(
-    person_id: int,
-    current_user: User = Depends(get_current_user),
-    db: Session = Depends(get_db)
-):
-    person = db.query(Person).filter(
-        Person.id == person_id,
-        Person.user_id == current_user.id
-    ).first()
-    
-    if not person:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="人物不存在"
-        )
-    
-    return person
-
-
 @router.post("", response_model=PersonResponse, status_code=status.HTTP_201_CREATED)
 def create_person(
     person: PersonCreate,
@@ -63,78 +43,6 @@ def create_person(
     db.commit()
     db.refresh(db_person)
     return db_person
-
-
-@router.put("/{person_id}", response_model=PersonResponse)
-def update_person(
-    person_id: int,
-    person: PersonUpdate,
-    current_user: User = Depends(get_current_user),
-    db: Session = Depends(get_db)
-):
-    db_person = db.query(Person).filter(
-        Person.id == person_id,
-        Person.user_id == current_user.id
-    ).first()
-    
-    if not db_person:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="人物不存在"
-        )
-    
-    for key, value in person.model_dump(exclude_unset=True).items():
-        setattr(db_person, key, value)
-    
-    db.commit()
-    db.refresh(db_person)
-    return db_person
-
-
-@router.delete("/{person_id}", status_code=status.HTTP_204_NO_CONTENT)
-def delete_person(
-    person_id: int,
-    current_user: User = Depends(get_current_user),
-    db: Session = Depends(get_db)
-):
-    from app.models.family_member import FamilyMember
-    from app.models.family_relation import FamilyRelation
-    from app.models.family_calculated_relation import FamilyCalculatedRelation
-    from sqlalchemy import or_
-    
-    db_person = db.query(Person).filter(
-        Person.id == person_id,
-        Person.user_id == current_user.id
-    ).first()
-    
-    if not db_person:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="人物不存在"
-        )
-    
-    family_member = db.query(FamilyMember).filter(
-        FamilyMember.person_id == person_id,
-        FamilyMember.user_id == current_user.id
-    ).first()
-    
-    if family_member:
-        db.query(FamilyRelation).filter(
-            or_(
-                FamilyRelation.parent_id == family_member.id,
-                FamilyRelation.child_id == family_member.id
-            ),
-            FamilyRelation.user_id == current_user.id
-        ).delete()
-        
-        db.query(FamilyCalculatedRelation).filter(
-            FamilyCalculatedRelation.user_id == current_user.id
-        ).delete()
-        
-        db.delete(family_member)
-    
-    db.delete(db_person)
-    db.commit()
 
 
 @router.get("/{person_id}/events", response_model=List[dict])
@@ -280,13 +188,11 @@ def get_person_detail(
     ).first()
     
     family = {
-        "father": None,
-        "mother": None,
+        "parents": [],
         "children": []
     }
     
     if family_member:
-        # 获取父母关系
         parent_relations = db.query(FamilyRelation).filter(
             FamilyRelation.child_id == family_member.id,
             FamilyRelation.user_id == current_user.id
@@ -297,22 +203,14 @@ def get_person_detail(
             if parent_member:
                 parent_person = db.query(Person).filter(Person.id == parent_member.person_id).first()
                 if parent_person:
-                    if relation.parent_type == "father":
-                        family["father"] = {
-                            "id": parent_member.id,
-                            "person_id": parent_member.person_id,
-                            "name": parent_person.nickname or f"{parent_person.last_name}{parent_person.first_name}",
-                            "relation_nature": relation.relation_nature
-                        }
-                    else:
-                        family["mother"] = {
-                            "id": parent_member.id,
-                            "person_id": parent_member.person_id,
-                            "name": parent_person.nickname or f"{parent_person.last_name}{parent_person.first_name}",
-                            "relation_nature": relation.relation_nature
-                        }
+                    family["parents"].append({
+                        "id": parent_member.id,
+                        "person_id": parent_member.person_id,
+                        "name": parent_person.nickname or f"{parent_person.last_name}{parent_person.first_name}",
+                        "parent_type": relation.parent_type,
+                        "relation_nature": relation.relation_nature
+                    })
         
-        # 获取子女关系
         children_relations = db.query(FamilyRelation).filter(
             FamilyRelation.parent_id == family_member.id,
             FamilyRelation.user_id == current_user.id
@@ -332,20 +230,19 @@ def get_person_detail(
                     })
     
     return {
-        "person": {
-            "id": person.id,
-            "first_name": person.first_name,
-            "last_name": person.last_name,
-            "nickname": person.nickname,
-            "gender": person.gender,
-            "birth_date": person.birth_date.isoformat() if person.birth_date else None,
-            "death_date": person.death_date.isoformat() if person.death_date else None,
-            "country": person.country,
-            "hometown": person.hometown,
-            "residence": person.residence,
-            "custom_fields": person.custom_fields,
-            "is_me": person.is_me
-        },
+        "id": person.id,
+        "first_name": person.first_name,
+        "last_name": person.last_name,
+        "nickname": person.nickname,
+        "gender": person.gender,
+        "birth_date": person.birth_date.isoformat() if person.birth_date else None,
+        "death_date": person.death_date.isoformat() if person.death_date else None,
+        "country": person.country,
+        "hometown": person.hometown,
+        "residence": person.residence,
+        "custom_fields": person.custom_fields,
+        "is_me": person.is_me,
+        "last_contact_at": person.last_contact_at.isoformat() if person.last_contact_at else None,
         "family": family
     }
 
@@ -362,19 +259,16 @@ def update_person_family(
     from app.models.family_relation import FamilyRelation
     from sqlalchemy import or_
     
-    # 获取当前人物的家族成员记录
     family_member = db.query(FamilyMember).filter(
         FamilyMember.person_id == person_id,
         FamilyMember.user_id == current_user.id
     ).first()
     
     if not family_member:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="该人物未加入家族"
-        )
+        family_member = FamilyMember(user_id=current_user.id, person_id=person_id)
+        db.add(family_member)
+        db.flush()
     
-    # 删除现有关系
     db.query(FamilyRelation).filter(
         or_(
             FamilyRelation.parent_id == family_member.id,
@@ -383,48 +277,36 @@ def update_person_family(
         FamilyRelation.user_id == current_user.id
     ).delete()
     
-    # 添加父亲关系
-    if family_data.get("father_id"):
-        father_member = db.query(FamilyMember).filter(
-            FamilyMember.id == family_data["father_id"],
-            FamilyMember.user_id == current_user.id
-        ).first()
-        
-        if father_member:
-            relation = FamilyRelation(
-                user_id=current_user.id,
-                parent_id=father_member.id,
-                child_id=family_member.id,
-                parent_type="father",
-                relation_nature=family_data.get("father_relation_nature", "qin")
-            )
-            db.add(relation)
+    if family_data.get("parents"):
+        for parent in family_data["parents"]:
+            parent_member = db.query(FamilyMember).filter(
+                FamilyMember.person_id == parent["id"],
+                FamilyMember.user_id == current_user.id
+            ).first()
+            if not parent_member:
+                parent_member = FamilyMember(user_id=current_user.id, person_id=parent["id"])
+                db.add(parent_member)
+                db.flush()
+            if parent_member:
+                relation = FamilyRelation(
+                    user_id=current_user.id,
+                    parent_id=parent_member.id,
+                    child_id=family_member.id,
+                    parent_type=parent.get("parent_type", "father"),
+                    relation_nature=parent.get("relation_nature", "qin")
+                )
+                db.add(relation)
     
-    # 添加母亲关系
-    if family_data.get("mother_id"):
-        mother_member = db.query(FamilyMember).filter(
-            FamilyMember.id == family_data["mother_id"],
-            FamilyMember.user_id == current_user.id
-        ).first()
-        
-        if mother_member:
-            relation = FamilyRelation(
-                user_id=current_user.id,
-                parent_id=mother_member.id,
-                child_id=family_member.id,
-                parent_type="mother",
-                relation_nature=family_data.get("mother_relation_nature", "qin")
-            )
-            db.add(relation)
-    
-    # 添加子女关系
     if family_data.get("children"):
         for child in family_data["children"]:
             child_member = db.query(FamilyMember).filter(
-                FamilyMember.id == child["id"],
+                FamilyMember.person_id == child["id"],
                 FamilyMember.user_id == current_user.id
             ).first()
-            
+            if not child_member:
+                child_member = FamilyMember(user_id=current_user.id, person_id=child["id"])
+                db.add(child_member)
+                db.flush()
             if child_member:
                 relation = FamilyRelation(
                     user_id=current_user.id,
@@ -437,10 +319,101 @@ def update_person_family(
     
     db.commit()
     
-    # 失效缓存
     invalidate_relation_cache(db, current_user.id)
     
     return {"message": "关系更新成功"}
+
+
+@router.get("/{person_id}", response_model=PersonResponse)
+def get_person(
+    person_id: int,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    person = db.query(Person).filter(
+        Person.id == person_id,
+        Person.user_id == current_user.id
+    ).first()
+    
+    if not person:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="人物不存在"
+        )
+    
+    return person
+
+
+@router.put("/{person_id}", response_model=PersonResponse)
+def update_person(
+    person_id: int,
+    person: PersonUpdate,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    db_person = db.query(Person).filter(
+        Person.id == person_id,
+        Person.user_id == current_user.id
+    ).first()
+    
+    if not db_person:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="人物不存在"
+        )
+    
+    for key, value in person.model_dump(exclude_unset=True).items():
+        setattr(db_person, key, value)
+    
+    db.commit()
+    db.refresh(db_person)
+    return db_person
+
+
+@router.delete("/{person_id}", status_code=status.HTTP_204_NO_CONTENT)
+def delete_person(
+    person_id: int,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    from app.models.family_member import FamilyMember
+    from app.models.family_relation import FamilyRelation
+    from app.models.family_calculated_relation import FamilyCalculatedRelation
+    from sqlalchemy import or_
+    
+    db_person = db.query(Person).filter(
+        Person.id == person_id,
+        Person.user_id == current_user.id
+    ).first()
+    
+    if not db_person:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="人物不存在"
+        )
+    
+    family_member = db.query(FamilyMember).filter(
+        FamilyMember.person_id == person_id,
+        FamilyMember.user_id == current_user.id
+    ).first()
+    
+    if family_member:
+        db.query(FamilyRelation).filter(
+            or_(
+                FamilyRelation.parent_id == family_member.id,
+                FamilyRelation.child_id == family_member.id
+            ),
+            FamilyRelation.user_id == current_user.id
+        ).delete()
+        
+        db.query(FamilyCalculatedRelation).filter(
+            FamilyCalculatedRelation.user_id == current_user.id
+        ).delete()
+        
+        db.delete(family_member)
+    
+    db.delete(db_person)
+    db.commit()
 
 
 def invalidate_relation_cache(db: Session, user_id: int):
