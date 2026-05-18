@@ -17,6 +17,7 @@ ENV/
 /backend/.pytest_cache/
 /backend/*.py[cod]
 /backend/.mypy_cache/
+/backend/uploads/
 
 # Node
 /frontend/node_modules/

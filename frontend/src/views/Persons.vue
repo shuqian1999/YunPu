@@ -33,7 +33,7 @@
         @click="handleView(person.id)"
       >
         <div class="person-avatar">
-          <el-avatar :size="80">
+          <el-avatar :size="80" :src="person.avatar_url">
             {{ person.nickname || person.first_name || '?' }}
           </el-avatar>
         </div>

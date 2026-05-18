@@ -23,22 +23,48 @@
 
     <div class="detail-content">
       <div class="info-section">
-        <div class="avatar-container">
-          <img
-            v-if="personInfo.avatar_url"
-            :src="personInfo.avatar_url"
-            class="avatar"
-            alt="头像"
-          />
-          <div v-else class="avatar-placeholder">
-            <el-icon :size="48" class="avatar-icon">
-              <User />
-            </el-icon>
+        <div class="avatar-wrapper">
+          <div class="avatar-container" @click="isEditing && !uploading && triggerUpload">
+            <img
+              v-if="personInfo.avatar_url"
+              :src="personInfo.avatar_url"
+              class="avatar"
+              alt="头像"
+            />
+            <div v-else class="avatar-placeholder">
+              <el-icon :size="48" class="avatar-icon">
+                <User />
+              </el-icon>
+            </div>
+            <div v-if="personInfo.death_date" class="deceased-marker">
+              <span>逝</span>
+            </div>
+            <div v-if="isEditing" class="avatar-overlay">
+              <el-icon v-if="!uploading" :size="32">
+                <Camera />
+              </el-icon>
+              <el-icon v-else class="loading-icon" :size="32">
+                <Loading />
+              </el-icon>
+            </div>
           </div>
-          <div v-if="personInfo.death_date" class="deceased-marker">
-            <span>逝</span>
+          <div v-if="isEditing" class="avatar-actions">
+            <el-button @click="triggerUpload" type="primary" size="small">
+              <el-icon><Camera /></el-icon>
+              上传头像
+            </el-button>
+            <el-button v-if="personInfo.avatar_url" @click="handleDeleteAvatar" type="danger" size="small">
+              删除头像
+            </el-button>
           </div>
         </div>
+        <input
+          ref="fileInputRef"
+          type="file"
+          accept="image/*"
+          style="display: none"
+          @change="handleAvatarUpload"
+        />
 
         <div class="basic-info">
           <div class="info-row">
@@ -370,10 +396,10 @@
 <script setup>
 import { ref, onMounted, reactive, computed, watch } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
-import { User, MapLocation, Edit } from '@element-plus/icons-vue'
-import { getPerson, getPersonEvents, getPersonReminders, getPersonDetail, updatePersonFamily, getPersons, updatePerson } from '@/api/persons'
+import { User, MapLocation, Edit, Camera, Loading } from '@element-plus/icons-vue'
+import { getPerson, getPersonEvents, getPersonReminders, getPersonDetail, updatePersonFamily, getPersons, updatePerson, uploadPersonAvatar, deletePersonAvatar } from '@/api/persons'
 import { getCountries } from '@/api/countries'
-import { ElMessage } from 'element-plus'
+import { ElMessage, ElMessageBox } from 'element-plus'
 
 const router = useRouter()
 const route = useRoute()
@@ -390,6 +416,8 @@ const showEditFamily = ref(false)
 
 const isEditing = ref(false)
 const saving = ref(false)
+const uploading = ref(false)
+const fileInputRef = ref(null)
 
 const fathers = computed(() => {
   return family.value.parents.filter(p => p.parent_type === 'father')
@@ -516,6 +544,51 @@ const startEdit = () => {
 
 const cancelEdit = () => {
   isEditing.value = false
+}
+
+const triggerUpload = () => {
+  if (fileInputRef.value) {
+    fileInputRef.value.click()
+  }
+}
+
+const handleAvatarUpload = async (event) => {
+  const file = event.target.files[0]
+  if (!file) return
+
+  uploading.value = true
+  try {
+    const res = await uploadPersonAvatar(personId, file)
+    personInfo.value.avatar_url = res.avatar_url
+    ElMessage.success('头像上传成功')
+  } catch (error) {
+    console.error('头像上传失败:', error)
+    ElMessage.error('头像上传失败')
+  } finally {
+    uploading.value = false
+    if (fileInputRef.value) {
+      fileInputRef.value.value = ''
+    }
+  }
+}
+
+const handleDeleteAvatar = async () => {
+  try {
+    await ElMessageBox.confirm('确定要删除头像吗？', '提示', {
+      confirmButtonText: '确定',
+      cancelButtonText: '取消',
+      type: 'warning'
+    })
+    
+    await deletePersonAvatar(personId)
+    personInfo.value.avatar_url = null
+    ElMessage.success('头像删除成功')
+  } catch (error) {
+    if (error !== 'cancel') {
+      console.error('头像删除失败:', error)
+      ElMessage.error('头像删除失败')
+    }
+  }
 }
 
 const saveEdit = async () => {
@@ -725,8 +798,16 @@ watch(showEditFamily, (val) => {
   box-shadow: 0 2px 12px rgba(0, 0, 0, 0.08);
 }
 
+.avatar-wrapper {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 16px;
+}
+
 .avatar-container {
   position: relative;
+  cursor: pointer;
 }
 
 .avatar {
@@ -752,6 +833,46 @@ watch(showEditFamily, (val) => {
   color: #409EFF;
 }
 
+.avatar-overlay {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 160px;
+  height: 160px;
+  border-radius: 50%;
+  background: rgba(0, 0, 0, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: white;
+  opacity: 0;
+  transition: opacity 0.3s;
+  border: 4px solid #409EFF;
+  box-sizing: border-box;
+}
+
+.avatar-container:hover .avatar-overlay {
+  opacity: 1;
+}
+
+.avatar-actions {
+  display: flex;
+  gap: 8px;
+}
+
+.loading-icon {
+  animation: rotate 1s linear infinite;
+}
+
+@keyframes rotate {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
 .deceased-marker {
   position: absolute;
   bottom: 4px;
@@ -765,6 +886,7 @@ watch(showEditFamily, (val) => {
   justify-content: center;
   color: white;
   font-size: 12px;
+  z-index: 10;
 }
 
 .basic-info {

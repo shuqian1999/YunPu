@@ -12,6 +12,8 @@ class Settings(BaseSettings):
     default_username: str = "admin"
     default_password: str = "admin123"
     cors_origins: str = "http://localhost:5173,http://localhost:3000"
+    upload_dir: str = "./uploads"
+    max_upload_size: int = 5 * 1024 * 1024
 
     class Config:
         env_file = ".env"

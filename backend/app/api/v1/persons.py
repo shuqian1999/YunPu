@@ -1,9 +1,12 @@
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, status, UploadFile, File
 from sqlalchemy.orm import Session
 from typing import List
+import os
+import uuid
 
 from app.core.database import get_db
 from app.core.security import get_current_user
+from app.core.config import settings
 from app.models.person import Person
 from app.models.user import User
 from app.schemas.person import PersonCreate, PersonUpdate, PersonResponse
@@ -266,6 +269,7 @@ def get_person_detail(
         "residence": person.residence,
         "custom_fields": person.custom_fields,
         "is_me": person.is_me,
+        "avatar_url": person.avatar_url,
         "last_contact_at": person.last_contact_at.isoformat() if person.last_contact_at else None,
         "family": family
     }
@@ -468,3 +472,99 @@ def invalidate_relation_cache(db: Session, user_id: int):
         FamilyCalculatedRelation.user_id == user_id
     ).delete()
     db.commit()
+
+
+@router.post("/{person_id}/avatar")
+async def upload_person_avatar(
+    person_id: int,
+    file: UploadFile = File(...),
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """上传人物头像"""
+    person = db.query(Person).filter(
+        Person.id == person_id,
+        Person.user_id == current_user.id
+    ).first()
+    
+    if not person:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="人物不存在"
+        )
+    
+    if not file.content_type or not file.content_type.startswith("image/"):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="请上传图片文件"
+        )
+    
+    file_content = await file.read()
+    if len(file_content) > settings.max_upload_size:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="图片大小不能超过 5MB"
+        )
+    
+    file_extension = os.path.splitext(file.filename)[1].lower()
+    if file_extension not in [".jpg", ".jpeg", ".png", ".gif", ".webp"]:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="不支持的图片格式"
+        )
+    
+    file_name = f"{uuid.uuid4()}{file_extension}"
+    file_path = os.path.join(settings.upload_dir, file_name)
+    
+    with open(file_path, "wb") as f:
+        f.write(file_content)
+    
+    old_avatar_url = person.avatar_url
+    person.avatar_url = f"/uploads/{file_name}"
+    db.commit()
+    
+    if old_avatar_url and old_avatar_url.startswith("/uploads/"):
+        old_file_path = old_avatar_url[1:]
+        if os.path.exists(old_file_path):
+            try:
+                os.remove(old_file_path)
+            except:
+                pass
+    
+    return {"avatar_url": person.avatar_url}
+
+
+@router.delete("/{person_id}/avatar")
+def delete_person_avatar(
+    person_id: int,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """删除人物头像"""
+    person = db.query(Person).filter(
+        Person.id == person_id,
+        Person.user_id == current_user.id
+    ).first()
+    
+    if not person:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="人物不存在"
+        )
+    
+    if not person.avatar_url:
+        return {"message": "没有头像可删除"}
+    
+    old_avatar_url = person.avatar_url
+    person.avatar_url = None
+    db.commit()
+    
+    if old_avatar_url and old_avatar_url.startswith("/uploads/"):
+        old_file_path = old_avatar_url[1:]
+        if os.path.exists(old_file_path):
+            try:
+                os.remove(old_file_path)
+            except:
+                pass
+    
+    return {"message": "头像删除成功"}

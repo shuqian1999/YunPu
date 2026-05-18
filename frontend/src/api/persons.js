@@ -39,3 +39,17 @@ export const getPersonDetail = (id) => {
 export const updatePersonFamily = (id, data) => {
   return request.put(`/persons/${id}/family`, data)
 }
+
+export const uploadPersonAvatar = (id, file) => {
+  const formData = new FormData()
+  formData.append('file', file)
+  return request.post(`/persons/${id}/avatar`, formData, {
+    headers: {
+      'Content-Type': 'multipart/form-data'
+    }
+  })
+}
+
+export const deletePersonAvatar = (id) => {
+  return request.delete(`/persons/${id}/avatar`)
+}
