@@ -27,8 +27,7 @@ def get_dashboard_stats(
     ).count()
     
     reminder_count = db.query(Reminder).filter(
-        Reminder.user_id == current_user.id,
-        Reminder.enabled == True
+        Reminder.user_id == current_user.id
     ).count()
     
     return {
@@ -84,8 +83,7 @@ def get_dashboard_reminders(
     reminders = db.query(Reminder).filter(
         Reminder.user_id == current_user.id,
         Reminder.remind_date >= start_date,
-        Reminder.remind_date <= end_date,
-        Reminder.enabled == True
+        Reminder.remind_date <= end_date
     ).order_by(Reminder.remind_date.asc()).all()
     
     result = []
