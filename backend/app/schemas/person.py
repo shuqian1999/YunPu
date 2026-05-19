@@ -31,7 +31,6 @@ class PersonResponse(PersonBase):
     avatar_url: Optional[str] = None
     created_at: datetime
     updated_at: Optional[datetime] = None
-    last_contact_at: Optional[datetime] = None
 
     class Config:
         from_attributes = True

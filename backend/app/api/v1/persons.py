@@ -270,7 +270,6 @@ def get_person_detail(
         "custom_fields": person.custom_fields,
         "is_me": person.is_me,
         "avatar_url": person.avatar_url,
-        "last_contact_at": person.last_contact_at.isoformat() if person.last_contact_at else None,
         "family": family
     }
 

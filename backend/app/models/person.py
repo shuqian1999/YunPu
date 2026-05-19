@@ -23,7 +23,6 @@ class Person(Base):
     avatar_url = Column(String(255))
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), onupdate=func.now())
-    last_contact_at = Column(DateTime(timezone=True))
 
     events = relationship("Event", back_populates="person")
     reminders = relationship("Reminder", back_populates="person")
