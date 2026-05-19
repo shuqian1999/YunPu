@@ -211,96 +211,96 @@
         </div>
       </div>
 
-      <div class="tabs-section">
-        <el-tabs v-model="activeTab" class="detail-tabs">
-          <el-tab-pane label="事件记录" name="events">
-            <div class="tab-content">
-              <div class="tab-header">
-                <el-button @click="openEventDialog()" type="primary" size="small">
-                  <el-icon><Plus /></el-icon>
-                  添加事件
-                </el-button>
-              </div>
-              <div v-if="events.length === 0" class="empty">暂无事件记录</div>
-              <div v-else class="event-list">
-                <el-timeline>
-                  <el-timeline-item
-                    v-for="event in events"
-                    :key="event.id"
-                    :timestamp="formatDate(event.event_date)"
-                    placement="top"
-                  >
-                    <el-card class="event-card" :shadow="false">
-                      <div class="event-header">
-                        <span class="event-title">{{ event.title }}</span>
-                        <el-tag
-                          :color="event.event_type_color"
-                          size="small"
-                          class="event-type-tag"
-                        >
-                          {{ event.event_type || '其他' }}
-                        </el-tag>
-                        <div class="event-actions">
-                          <el-button @click="openEventDialog(event)" text type="primary" size="small">
-                            <el-icon><Edit /></el-icon>
-                          </el-button>
-                          <el-button @click="handleDeleteEvent(event.id)" text type="danger" size="small">
-                            <el-icon><Delete /></el-icon>
-                          </el-button>
-                        </div>
-                      </div>
-                      <p class="event-description">{{ event.description }}</p>
-                      <div v-if="event.location" class="event-location">
-                        <el-icon><MapLocation /></el-icon>
-                        <span>{{ event.location }}</span>
-                      </div>
-                    </el-card>
-                  </el-timeline-item>
-                </el-timeline>
-              </div>
+      <div class="events-reminders-grid">
+        <el-card class="events-card">
+          <template #header>
+            <div class="card-header">
+              <span class="card-title">事件记录</span>
+              <el-button @click="openEventDialog()" type="primary" size="small">
+                <el-icon><Plus /></el-icon>
+                添加事件
+              </el-button>
             </div>
-          </el-tab-pane>
-
-          <el-tab-pane label="提醒事项" name="reminders">
-            <div class="tab-content">
-              <div class="tab-header">
-                <el-button @click="openReminderDialog()" type="primary" size="small">
-                  <el-icon><Plus /></el-icon>
-                  添加提醒
-                </el-button>
-              </div>
-              <div v-if="reminders.length === 0" class="empty">暂无提醒事项</div>
-              <div v-else class="reminder-list">
-                <div
-                  v-for="reminder in reminders"
-                  :key="reminder.id"
-                  class="reminder-item"
-                >
-                  <div class="reminder-title-row">
-                    <span class="reminder-title">{{ reminder.title }}</span>
-                    <el-tag v-if="reminder.is_lunar" type="info" size="small">农历</el-tag>
-                    <el-switch
-                      v-model="reminder.enabled"
+          </template>
+          <div v-if="events.length === 0" class="empty">暂无事件记录</div>
+          <div v-else class="event-list">
+            <el-timeline>
+              <el-timeline-item
+                v-for="event in events"
+                :key="event.id"
+                :timestamp="formatDate(event.event_date)"
+                placement="top"
+              >
+                <el-card class="event-card" :shadow="false">
+                  <div class="event-header">
+                    <span class="event-title">{{ event.title }}</span>
+                    <el-tag
+                      :color="event.event_type_color"
                       size="small"
-                      @change="handleToggleReminder(reminder)"
-                    />
-                  </div>
-                  <div class="reminder-row">
-                    <span class="reminder-date">{{ formatDate(reminder.remind_date) }}</span>
-                    <div class="reminder-actions">
-                      <el-button @click="openReminderDialog(reminder)" text type="primary" size="small">
+                      class="event-type-tag"
+                    >
+                      {{ event.event_type || '其他' }}
+                    </el-tag>
+                    <div class="event-actions">
+                      <el-button @click="openEventDialog(event)" text type="primary" size="small">
                         <el-icon><Edit /></el-icon>
                       </el-button>
-                      <el-button @click="handleDeleteReminder(reminder.id)" text type="danger" size="small">
+                      <el-button @click="handleDeleteEvent(event.id)" text type="danger" size="small">
                         <el-icon><Delete /></el-icon>
                       </el-button>
                     </div>
                   </div>
+                  <p class="event-description">{{ event.description }}</p>
+                  <div v-if="event.location" class="event-location">
+                    <el-icon><MapLocation /></el-icon>
+                    <span>{{ event.location }}</span>
+                  </div>
+                </el-card>
+              </el-timeline-item>
+            </el-timeline>
+          </div>
+        </el-card>
+
+        <el-card class="reminders-card">
+          <template #header>
+            <div class="card-header">
+              <span class="card-title">提醒事项</span>
+              <el-button @click="openReminderDialog()" type="primary" size="small">
+                <el-icon><Plus /></el-icon>
+                添加提醒
+              </el-button>
+            </div>
+          </template>
+          <div v-if="reminders.length === 0" class="empty">暂无提醒事项</div>
+          <div v-else class="reminder-list">
+            <div
+              v-for="reminder in reminders"
+              :key="reminder.id"
+              class="reminder-item"
+            >
+              <div class="reminder-title-row">
+                <span class="reminder-title">{{ reminder.title }}</span>
+                <el-tag v-if="reminder.is_lunar" type="info" size="small">农历</el-tag>
+                <el-switch
+                  v-model="reminder.enabled"
+                  size="small"
+                  @change="handleToggleReminder(reminder)"
+                />
+              </div>
+              <div class="reminder-row">
+                <span class="reminder-date">{{ formatDate(reminder.remind_date) }}</span>
+                <div class="reminder-actions">
+                  <el-button @click="openReminderDialog(reminder)" text type="primary" size="small">
+                    <el-icon><Edit /></el-icon>
+                  </el-button>
+                  <el-button @click="handleDeleteReminder(reminder.id)" text type="danger" size="small">
+                    <el-icon><Delete /></el-icon>
+                  </el-button>
                 </div>
               </div>
             </div>
-          </el-tab-pane>
-        </el-tabs>
+          </div>
+        </el-card>
       </div>
     </div>
 
@@ -1341,19 +1341,39 @@ const handleToggleReminder = async (reminder) => {
   text-align: center;
 }
 
-.tabs-section {
-  background: white;
-  border-radius: 12px;
-  padding: 24px;
-  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.08);
+.events-reminders-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 20px;
+  margin-top: 24px;
+
+  @media (max-width: 768px) {
+    grid-template-columns: 1fr;
+  }
 }
 
-.detail-tabs {
-  margin-top: 16px;
+.card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
 }
 
-.tab-content {
-  padding: 16px 0;
+.card-title {
+  font-size: 16px;
+  font-weight: 600;
+  color: #303133;
+}
+
+.events-card,
+.reminders-card {
+  :deep(.el-card__body) {
+    padding: 20px;
+  }
+
+  :deep(.el-card__header) {
+    padding: 16px 20px;
+    border-bottom: 1px solid #EBEEF5;
+  }
 }
 
 .event-list {
