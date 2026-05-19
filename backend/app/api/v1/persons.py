@@ -85,8 +85,7 @@ def get_person_reminders(
     
     reminders = db.query(Reminder).filter(
         Reminder.person_id == person_id,
-        Reminder.user_id == current_user.id,
-        Reminder.enabled == True
+        Reminder.user_id == current_user.id
     ).order_by(Reminder.remind_date.asc()).all()
     
     return [
@@ -94,7 +93,8 @@ def get_person_reminders(
             "id": reminder.id,
             "title": reminder.title,
             "remind_date": reminder.remind_date.isoformat(),
-            "is_lunar": reminder.is_lunar
+            "is_lunar": reminder.is_lunar,
+            "enabled": reminder.enabled
         }
         for reminder in reminders
     ]

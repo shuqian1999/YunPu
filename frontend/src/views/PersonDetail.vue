@@ -215,6 +215,12 @@
         <el-tabs v-model="activeTab" class="detail-tabs">
           <el-tab-pane label="事件记录" name="events">
             <div class="tab-content">
+              <div class="tab-header">
+                <el-button @click="openEventDialog()" type="primary" size="small">
+                  <el-icon><Plus /></el-icon>
+                  添加事件
+                </el-button>
+              </div>
               <div v-if="events.length === 0" class="empty">暂无事件记录</div>
               <div v-else class="event-list">
                 <el-timeline>
@@ -234,6 +240,14 @@
                         >
                           {{ event.event_type || '其他' }}
                         </el-tag>
+                        <div class="event-actions">
+                          <el-button @click="openEventDialog(event)" text type="primary" size="small">
+                            <el-icon><Edit /></el-icon>
+                          </el-button>
+                          <el-button @click="handleDeleteEvent(event.id)" text type="danger" size="small">
+                            <el-icon><Delete /></el-icon>
+                          </el-button>
+                        </div>
                       </div>
                       <p class="event-description">{{ event.description }}</p>
                       <div v-if="event.location" class="event-location">
@@ -249,6 +263,12 @@
 
           <el-tab-pane label="提醒事项" name="reminders">
             <div class="tab-content">
+              <div class="tab-header">
+                <el-button @click="openReminderDialog()" type="primary" size="small">
+                  <el-icon><Plus /></el-icon>
+                  添加提醒
+                </el-button>
+              </div>
               <div v-if="reminders.length === 0" class="empty">暂无提醒事项</div>
               <div v-else class="reminder-list">
                 <div
@@ -259,8 +279,23 @@
                   <div class="reminder-title-row">
                     <span class="reminder-title">{{ reminder.title }}</span>
                     <el-tag v-if="reminder.is_lunar" type="info" size="small">农历</el-tag>
+                    <el-switch
+                      v-model="reminder.enabled"
+                      size="small"
+                      @change="handleToggleReminder(reminder)"
+                    />
                   </div>
-                  <span class="reminder-date">{{ formatDate(reminder.remind_date) }}</span>
+                  <div class="reminder-row">
+                    <span class="reminder-date">{{ formatDate(reminder.remind_date) }}</span>
+                    <div class="reminder-actions">
+                      <el-button @click="openReminderDialog(reminder)" text type="primary" size="small">
+                        <el-icon><Edit /></el-icon>
+                      </el-button>
+                      <el-button @click="handleDeleteReminder(reminder.id)" text type="danger" size="small">
+                        <el-icon><Delete /></el-icon>
+                      </el-button>
+                    </div>
+                  </div>
                 </div>
               </div>
             </div>
@@ -390,14 +425,81 @@
       </template>
     </el-dialog>
 
+    <el-dialog :title="eventDialogTitle" v-model="showEventDialog" width="500px">
+      <el-form :model="eventForm" label-width="80px">
+        <el-form-item label="标题" required>
+          <el-input v-model="eventForm.title" placeholder="请输入事件标题" />
+        </el-form-item>
+        <el-form-item label="日期" required>
+          <el-date-picker
+            v-model="eventForm.event_date"
+            type="date"
+            placeholder="选择事件日期"
+            value-format="YYYY-MM-DD"
+            style="width: 100%"
+          />
+        </el-form-item>
+        <el-form-item label="类型">
+          <el-select v-model="eventForm.event_type_id" placeholder="选择事件类型" clearable style="width: 100%">
+            <el-option
+              v-for="type in eventTypes"
+              :key="type.id"
+              :label="type.name"
+              :value="type.id"
+            />
+          </el-select>
+        </el-form-item>
+        <el-form-item label="描述">
+          <el-input v-model="eventForm.description" type="textarea" :rows="3" placeholder="请输入事件描述" />
+        </el-form-item>
+        <el-form-item label="地点">
+          <el-input v-model="eventForm.location" placeholder="请输入事件地点" />
+        </el-form-item>
+      </el-form>
+      <template #footer>
+        <el-button @click="showEventDialog = false">取消</el-button>
+        <el-button @click="submitEvent" type="primary" :loading="eventSaving">保存</el-button>
+      </template>
+    </el-dialog>
+
+    <el-dialog :title="reminderDialogTitle" v-model="showReminderDialog" width="500px">
+      <el-form :model="reminderForm" label-width="80px">
+        <el-form-item label="标题" required>
+          <el-input v-model="reminderForm.title" placeholder="请输入提醒标题" />
+        </el-form-item>
+        <el-form-item label="日期" required>
+          <el-date-picker
+            v-model="reminderForm.remind_date"
+            type="date"
+            placeholder="选择提醒日期"
+            value-format="YYYY-MM-DD"
+            style="width: 100%"
+          />
+        </el-form-item>
+        <el-form-item label="农历">
+          <el-switch v-model="reminderForm.is_lunar" active-text="是" inactive-text="否" />
+        </el-form-item>
+        <el-form-item label="启用">
+          <el-switch v-model="reminderForm.enabled" active-text="是" inactive-text="否" />
+        </el-form-item>
+      </el-form>
+      <template #footer>
+        <el-button @click="showReminderDialog = false">取消</el-button>
+        <el-button @click="submitReminder" type="primary" :loading="reminderSaving">保存</el-button>
+      </template>
+    </el-dialog>
+
   </div>
 </template>
 
 <script setup>
 import { ref, onMounted, reactive, computed, watch } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
-import { User, MapLocation, Edit, Camera, Loading } from '@element-plus/icons-vue'
+import { User, MapLocation, Edit, Camera, Loading, Plus, Delete } from '@element-plus/icons-vue'
 import { getPerson, getPersonEvents, getPersonReminders, getPersonDetail, updatePersonFamily, getPersons, updatePerson, uploadPersonAvatar, deletePersonAvatar } from '@/api/persons'
+import { createEvent, updateEvent, deleteEvent } from '@/api/events'
+import { createReminder, updateReminder, deleteReminder } from '@/api/reminders'
+import { getEventTypes } from '@/api/event_types'
 import { getCountries } from '@/api/countries'
 import { ElMessage, ElMessageBox } from 'element-plus'
 
@@ -413,6 +515,31 @@ const activeTab = ref('events')
 const countries = ref([])
 const availableFamilyMembers = ref([])
 const showEditFamily = ref(false)
+
+const showEventDialog = ref(false)
+const eventDialogTitle = ref('添加事件')
+const eventForm = reactive({
+  id: null,
+  title: '',
+  event_date: '',
+  event_type_id: null,
+  description: '',
+  location: ''
+})
+const eventSaving = ref(false)
+
+const showReminderDialog = ref(false)
+const reminderDialogTitle = ref('添加提醒')
+const reminderForm = reactive({
+  id: null,
+  title: '',
+  remind_date: '',
+  is_lunar: false,
+  enabled: true
+})
+const reminderSaving = ref(false)
+
+const eventTypes = ref([])
 
 const isEditing = ref(false)
 const saving = ref(false)
@@ -736,12 +863,13 @@ const submitFamily = async () => {
 
 const loadData = async () => {
   try {
-    const [personData, eventsData, remindersData, countriesData, personsData] = await Promise.all([
+    const [personData, eventsData, remindersData, countriesData, personsData, eventTypesData] = await Promise.all([
       getPersonDetail(personId),
       getPersonEvents(personId),
       getPersonReminders(personId),
       getCountries(),
-      getPersons()
+      getPersons(),
+      getEventTypes()
     ])
 
     personInfo.value = personData
@@ -749,7 +877,8 @@ const loadData = async () => {
     events.value = eventsData
     reminders.value = remindersData
     countries.value = countriesData
-    
+    eventTypes.value = eventTypesData
+
     availableFamilyMembers.value = personsData.map(p => ({
       id: p.id,
       name: p.nickname || `${p.last_name}${p.first_name}`
@@ -768,6 +897,173 @@ watch(showEditFamily, (val) => {
     initFamilyForm()
   }
 })
+
+const openEventDialog = (event = null) => {
+  if (event) {
+    eventDialogTitle.value = '编辑事件'
+    eventForm.id = event.id
+    eventForm.title = event.title
+    eventForm.event_date = event.event_date
+    eventForm.event_type_id = event.event_type_id
+    eventForm.description = event.description || ''
+    eventForm.location = event.location || ''
+  } else {
+    eventDialogTitle.value = '添加事件'
+    eventForm.id = null
+    eventForm.title = ''
+    eventForm.event_date = ''
+    eventForm.event_type_id = null
+    eventForm.description = ''
+    eventForm.location = ''
+  }
+  showEventDialog.value = true
+}
+
+const submitEvent = async () => {
+  if (!eventForm.title || !eventForm.event_date) {
+    ElMessage.warning('请填写标题和日期')
+    return
+  }
+
+  eventSaving.value = true
+  try {
+    const data = {
+      person_id: personId,
+      title: eventForm.title,
+      event_date: eventForm.event_date,
+      event_type_id: eventForm.event_type_id,
+      description: eventForm.description || null,
+      location: eventForm.location || null
+    }
+
+    if (eventForm.id) {
+      await updateEvent(eventForm.id, data)
+      ElMessage.success('事件更新成功')
+    } else {
+      await createEvent(data)
+      ElMessage.success('事件添加成功')
+    }
+
+    showEventDialog.value = false
+    const eventsData = await getPersonEvents(personId)
+    events.value = eventsData
+  } catch (error) {
+    console.error('保存事件失败:', error)
+    ElMessage.error('保存事件失败')
+  } finally {
+    eventSaving.value = false
+  }
+}
+
+const handleDeleteEvent = async (eventId) => {
+  try {
+    await ElMessageBox.confirm('确定要删除这个事件吗？', '提示', {
+      confirmButtonText: '确定',
+      cancelButtonText: '取消',
+      type: 'warning'
+    })
+
+    await deleteEvent(eventId)
+    ElMessage.success('事件删除成功')
+    const eventsData = await getPersonEvents(personId)
+    events.value = eventsData
+  } catch (error) {
+    if (error !== 'cancel') {
+      console.error('删除事件失败:', error)
+      ElMessage.error('删除事件失败')
+    }
+  }
+}
+
+const openReminderDialog = (reminder = null) => {
+  if (reminder) {
+    reminderDialogTitle.value = '编辑提醒'
+    reminderForm.id = reminder.id
+    reminderForm.title = reminder.title
+    reminderForm.remind_date = reminder.remind_date
+    reminderForm.is_lunar = reminder.is_lunar
+    reminderForm.enabled = reminder.enabled
+  } else {
+    reminderDialogTitle.value = '添加提醒'
+    reminderForm.id = null
+    reminderForm.title = ''
+    reminderForm.remind_date = ''
+    reminderForm.is_lunar = false
+    reminderForm.enabled = true
+  }
+  showReminderDialog.value = true
+}
+
+const submitReminder = async () => {
+  if (!reminderForm.title || !reminderForm.remind_date) {
+    ElMessage.warning('请填写标题和日期')
+    return
+  }
+
+  reminderSaving.value = true
+  try {
+    const data = {
+      person_id: personId,
+      title: reminderForm.title,
+      remind_date: reminderForm.remind_date,
+      is_lunar: reminderForm.is_lunar,
+      enabled: reminderForm.enabled
+    }
+
+    if (reminderForm.id) {
+      await updateReminder(reminderForm.id, data)
+      ElMessage.success('提醒更新成功')
+    } else {
+      await createReminder(data)
+      ElMessage.success('提醒添加成功')
+    }
+
+    showReminderDialog.value = false
+    const remindersData = await getPersonReminders(personId)
+    reminders.value = remindersData
+  } catch (error) {
+    console.error('保存提醒失败:', error)
+    ElMessage.error('保存提醒失败')
+  } finally {
+    reminderSaving.value = false
+  }
+}
+
+const handleDeleteReminder = async (reminderId) => {
+  try {
+    await ElMessageBox.confirm('确定要删除这个提醒吗？', '提示', {
+      confirmButtonText: '确定',
+      cancelButtonText: '取消',
+      type: 'warning'
+    })
+
+    await deleteReminder(reminderId)
+    ElMessage.success('提醒删除成功')
+    const remindersData = await getPersonReminders(personId)
+    reminders.value = remindersData
+  } catch (error) {
+    if (error !== 'cancel') {
+      console.error('删除提醒失败:', error)
+      ElMessage.error('删除提醒失败')
+    }
+  }
+}
+
+const handleToggleReminder = async (reminder) => {
+  try {
+    await updateReminder(reminder.id, {
+      person_id: personId,
+      title: reminder.title,
+      remind_date: reminder.remind_date,
+      is_lunar: reminder.is_lunar,
+      enabled: reminder.enabled
+    })
+  } catch (error) {
+    console.error('更新提醒状态失败:', error)
+    ElMessage.error('更新提醒状态失败')
+    reminder.enabled = !reminder.enabled
+  }
+}
 </script>
 
 <style scoped>
@@ -1082,6 +1378,46 @@ watch(showEditFamily, (val) => {
 
 .event-type-tag {
   font-size: 11px;
+}
+
+.event-actions {
+  display: flex;
+  gap: 4px;
+  margin-left: auto;
+}
+
+.reminder-list {
+  margin-top: 16px;
+}
+
+.reminder-item {
+  padding: 12px;
+  border-bottom: 1px solid #ebeef5;
+}
+
+.reminder-item:last-child {
+  border-bottom: none;
+}
+
+.reminder-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-top: 4px;
+}
+
+.reminder-date {
+  color: #909399;
+  font-size: 12px;
+}
+
+.reminder-actions {
+  display: flex;
+  gap: 4px;
+}
+
+.tab-header {
+  margin-bottom: 16px;
 }
 
 .event-description {
