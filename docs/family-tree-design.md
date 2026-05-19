@@ -5,17 +5,18 @@
 ### 1.1 设计目标
 
 家谱树可视化组件负责：
-- 将家族关系数据以树形结构展示
-- 支持交互式操作（缩放、平移、节点点击）
-- 提供直观的亲属关系展示
+- 将家族关系数据以宝塔式树形结构展示
+- 支持初始化流程（首次进入为空状态）
+- 提供直观的亲属关系展示（实线表示亲生，虚线表示非亲生）
 - 支持快捷添加亲属关系
+- 节点不可拖动，保证布局规整
 
 ### 1.2 技术选型
 
 | 技术 | 选型 | 理由 |
 |------|------|------|
-| 可视化库 | Vue Flow | Vue生态原生支持，拖拽交互开箱即用 |
-| 布局算法 | 自定义层级布局 | 家族树结构特殊，需要定制布局 |
+| 可视化库 | Vue Flow | Vue生态原生支持，布局控制灵活 |
+| 布局算法 | 自定义宝塔式层级布局 | 家族树结构特殊，需要定制布局，节点不可拖动 |
 | 样式框架 | Element Plus | 与项目现有技术栈一致 |
 
 ---
@@ -26,9 +27,12 @@
 
 ```
 FamilyTree.vue (主组件)
+├── InitialState (初始化状态)
+│   ├── EmptyHint (空状态提示)
+│   └── InitButton (初始化按钮)
 ├── VueFlow (可视化容器)
 │   ├── Background (背景网格)
-│   ├── Controls (控制按钮)
+│   ├── Controls (控制按钮 - 仅缩放平移)
 │   └── Custom Node (自定义节点)
 ├── NodeDetailPanel (节点详情面板)
 ├── AddRelationDialog (添加关系弹窗)
@@ -48,7 +52,7 @@ FamilyTree.vue (主组件)
                               │
                      ┌────────┴────────┐
                      ▼                 ▼
-              addFamilyRelation   calculateLayout
+              addFamilyRelation   calculatePagodaLayout
 ```
 
 ---
@@ -74,22 +78,31 @@ interface FamilyTreeEdge {
   source: string;
   target: string;
   relationNature: 'qin' | 'ji' | 'yi';
+  isSpousalLine: boolean; // 是否为配偶连线
 }
 ```
 
-### 3.2 层级布局算法
+### 3.2 宝塔式布局算法
 
 ```typescript
-function calculateLayout(nodes: FamilyTreeNode[], edges: FamilyTreeEdge[]): FamilyTreeNode[] {
+function calculatePagodaLayout(nodes: FamilyTreeNode[], edges: FamilyTreeEdge[]): { nodes: FamilyTreeNode[], edges: FamilyTreeEdge[] } {
   // 1. 构建父子关系映射
   const parentMap = new Map<string, string[]>();
   const childMap = new Map<string, string[]>();
+  const spouseMap = new Map<string, string[]>();
   
   edges.forEach(edge => {
-    if (!parentMap.has(edge.source)) parentMap.set(edge.source, []);
-    if (!childMap.has(edge.target)) childMap.set(edge.target, []);
-    parentMap.get(edge.source)!.push(edge.target);
-    childMap.get(edge.target)!.push(edge.source);
+    if (edge.isSpousalLine) {
+      if (!spouseMap.has(edge.source)) spouseMap.set(edge.source, []);
+      if (!spouseMap.has(edge.target)) spouseMap.set(edge.target, []);
+      spouseMap.get(edge.source)!.push(edge.target);
+      spouseMap.get(edge.target)!.push(edge.source);
+    } else {
+      if (!parentMap.has(edge.source)) parentMap.set(edge.source, []);
+      if (!childMap.has(edge.target)) childMap.set(edge.target, []);
+      parentMap.get(edge.source)!.push(edge.target);
+      childMap.get(edge.target)!.push(edge.source);
+    }
   });
   
   // 2. 确定层级（以"我"为中心）
@@ -108,36 +121,194 @@ function calculateLayout(nodes: FamilyTreeNode[], edges: FamilyTreeEdge[]): Fami
     }
   }
   
-  // 3. 计算每层节点位置
-  const levels: Map<number, string[]> = new Map();
+  // 3. 计算每层节点位置（考虑配偶）
+  const levels: Map<number, { nodes: string[], spouses: Map<string, string[]> }> = new Map();
+  
   levelMap.forEach((level, nodeId) => {
-    if (!levels.has(level)) levels.set(level, []);
-    levels.get(level)!.push(nodeId);
+    if (!levels.has(level)) {
+      levels.set(level, { nodes: [], spouses: new Map() });
+    }
+    levels.get(level)!.nodes.push(nodeId);
+    
+    // 记录配偶关系
+    const spouses = spouseMap.get(nodeId) || [];
+    spouses.forEach(spouseId => {
+      if (!levels.get(level)!.spouses.has(nodeId)) {
+        levels.get(level)!.spouses.set(nodeId, []);
+      }
+      levels.get(level)!.spouses.get(nodeId)!.push(spouseId);
+    });
   });
   
-  // 4. 计算坐标
-  const NODE_WIDTH = 180;
-  const NODE_HEIGHT = 120;
-  const VERTICAL_SPACING = 100;
-  const HORIZONTAL_SPACING = 60;
+  // 4. 计算坐标（宝塔式布局）
+  const NODE_WIDTH = 160;
+  const NODE_HEIGHT = 100;
+  const VERTICAL_SPACING = 120;
+  const HORIZONTAL_SPACING = 80;
+  const SPOUSE_GAP = 40; // 配偶之间的间距
   
-  const positionedNodes = nodes.map(node => {
-    const level = levelMap.get(node.id) || 0;
-    const levelNodes = levels.get(level) || [];
-    const index = levelNodes.indexOf(node.id);
-    const totalWidth = levelNodes.length * NODE_WIDTH + (levelNodes.length - 1) * HORIZONTAL_SPACING;
+  const positionedNodes: FamilyTreeNode[] = [];
+  const newEdges: FamilyTreeEdge[] = [];
+  
+  levels.forEach((levelData, level) => {
+    const allNodes = expandWithSpouses(levelData.nodes, levelData.spouses);
+    const totalWidth = allNodes.length * NODE_WIDTH + (allNodes.length - 1) * HORIZONTAL_SPACING;
     const startX = Math.max(200, window.innerWidth / 2 - totalWidth / 2);
     
-    return {
-      ...node,
-      position: {
-        x: startX + index * (NODE_WIDTH + HORIZONTAL_SPACING),
-        y: 150 + level * (NODE_HEIGHT + VERTICAL_SPACING)
+    const nodePositionMap = new Map<string, { x: number; y: number }>();
+    
+    allNodes.forEach((nodeId, index) => {
+      const x = startX + index * (NODE_WIDTH + HORIZONTAL_SPACING);
+      const y = 150 + level * (NODE_HEIGHT + VERTICAL_SPACING);
+      
+      nodePositionMap.set(nodeId, { x, y });
+      
+      const originalNode = nodes.find(n => n.id === nodeId);
+      if (originalNode) {
+        positionedNodes.push({
+          ...originalNode,
+          position: { x, y }
+        });
       }
-    };
+    });
+    
+    // 生成配偶连线（从两人底部延伸出水平线，中间汇合后向下延伸）
+    levelData.spouses.forEach((spouses, nodeId) => {
+      spouses.forEach(spouseId => {
+        if (nodePositionMap.has(nodeId) && nodePositionMap.has(spouseId)) {
+          const nodePos = nodePositionMap.get(nodeId)!;
+          const spousePos = nodePositionMap.get(spouseId)!;
+          
+          // 计算配偶中点
+          const midX = (nodePos.x + spousePos.x) / 2;
+          const nodeBottomY = nodePos.y + NODE_HEIGHT / 2;
+          
+          // 垂直线向下延伸的起点（在配偶连线下方）
+          const verticalStartY = nodeBottomY + 20;
+          
+          // 第一条边：从配偶1底部向右延伸到中点
+          newEdges.push({
+            id: `spouse-left-${nodeId}-${spouseId}`,
+            source: nodeId,
+            target: `spouse-mid-${nodeId}-${spouseId}`,
+            relationNature: 'qin',
+            isSpousalLine: true,
+            startPoint: { x: nodePos.x + NODE_WIDTH / 2, y: nodeBottomY },
+            endPoint: { x: midX, y: nodeBottomY }
+          });
+          
+          // 第二条边：从配偶2底部向左延伸到中点
+          newEdges.push({
+            id: `spouse-right-${nodeId}-${spouseId}`,
+            source: spouseId,
+            target: `spouse-mid-${nodeId}-${spouseId}`,
+            relationNature: 'qin',
+            isSpousalLine: true,
+            startPoint: { x: spousePos.x + NODE_WIDTH / 2, y: nodeBottomY },
+            endPoint: { x: midX, y: nodeBottomY }
+          });
+        }
+      });
+    });
+    
+    // 生成子女连线（从配偶连线中点向下延伸，90度弯折）
+    if (level > 0) {
+      const parentLevel = levels.get(level - 1);
+      if (parentLevel) {
+        const parentNodes = expandWithSpouses(parentLevel.nodes, parentLevel.spouses);
+        const parentPosMap = new Map<string, { x: number; y: number }>();
+        
+        // 获取上层节点位置
+        positionedNodes.forEach(node => {
+          if (levelMap.get(node.id) === level - 1) {
+            parentPosMap.set(node.id, node.position);
+          }
+        });
+        
+        // 计算子女与父母的连接
+        const childGroups = groupChildrenByParents(levelData.nodes, childMap, spouseMap);
+        
+        childGroups.forEach((children, parentIds) => {
+          const parentPositions = parentIds.map(id => parentPosMap.get(id)).filter(Boolean);
+          if (parentPositions.length === 0) return;
+          
+          // 计算父母连线中点
+          const midX = parentPositions.reduce((sum, p) => sum + p!.x, 0) / parentPositions.length;
+          const parentBottomY = parentPositions[0]!.y + NODE_HEIGHT / 2;
+          
+          // 计算子女位置范围
+          const childPositions = children.map(c => nodePositionMap.get(c)).filter(Boolean);
+          if (childPositions.length === 0) return;
+          
+          const childMidX = childPositions.reduce((sum, c) => sum + c!.x, 0) / childPositions.length;
+          const childTopY = childPositions[0]!.y - NODE_HEIGHT / 2;
+          
+          // 创建垂直线段（从父母中点向下）
+          const verticalLineId = `vertical-${parentIds.join('-')}`;
+          newEdges.push({
+            id: verticalLineId,
+            source: parentIds[0], // 使用第一个父母节点作为source
+            target: children[0],  // 使用第一个子女节点作为target
+            relationNature: 'qin',
+            isSpousalLine: false
+          });
+        });
+      }
+    }
   });
   
-  return positionedNodes;
+  return { nodes: positionedNodes, edges: newEdges };
+}
+
+function expandWithSpouses(nodes: string[], spouses: Map<string, string[]>): string[] {
+  const result: string[] = [];
+  const processed = new Set<string>();
+  
+  nodes.forEach(nodeId => {
+    if (processed.has(nodeId)) return;
+    
+    result.push(nodeId);
+    processed.add(nodeId);
+    
+    const spouseList = spouses.get(nodeId) || [];
+    spouseList.forEach(spouseId => {
+      if (!processed.has(spouseId)) {
+        result.push(spouseId);
+        processed.add(spouseId);
+      }
+    });
+  });
+  
+  return result;
+}
+
+function groupChildrenByParents(children: string[], childMap: Map<string, string[]>, spouseMap: Map<string, string[]>): Map<string[], string[]> {
+  const groups = new Map<string, string[]>();
+  
+  children.forEach(childId => {
+    const parents = childMap.get(childId) || [];
+    if (parents.length === 0) return;
+    
+    // 获取所有相关父母（包括配偶）
+    const allParents = new Set<string>();
+    parents.forEach(parentId => {
+      allParents.add(parentId);
+      const spouses = spouseMap.get(parentId) || [];
+      spouses.forEach(s => allParents.add(s));
+    });
+    
+    const key = Array.from(allParents).sort().join('-');
+    if (!groups.has(key)) groups.set(key, []);
+    groups.get(key)!.push(childId);
+  });
+  
+  // 转换为以父母数组为key的Map
+  const result = new Map<string[], string[]>();
+  groups.forEach((childrenList, key) => {
+    result.set(key.split('-'), childrenList);
+  });
+  
+  return result;
 }
 
 function assignLevels(
@@ -193,14 +364,29 @@ function assignLevels(
       </template>
     </el-page-header>
 
+    <!-- 初始化状态 -->
+    <div v-if="!treeInitialized" class="empty-state">
+      <div class="empty-icon">
+        <el-icon><Tree /></el-icon>
+      </div>
+      <h3>家族树为空</h3>
+      <p>点击下方按钮初始化家族树</p>
+      <el-button @click="initializeTree" type="primary">
+        <el-icon><Plus /></el-icon>
+        初始化家族树
+      </el-button>
+    </div>
+
     <!-- 可视化容器 -->
-    <div class="tree-container">
+    <div v-else class="tree-container">
       <VueFlow
         :nodes="localNodes"
         :edges="localEdges"
         :default-zoom="1"
         :min-zoom="0.2"
         :max-zoom="3"
+        :nodes-draggable="false"  <!-- 节点不可拖动 -->
+        :edges-updatable="false"  <!-- 连线不可修改 -->
         class="vue-flow-container"
         @node-click="onNodeClick"
         @node-mouse-enter="onNodeMouseEnter"
@@ -258,7 +444,25 @@ function assignLevels(
 </template>
 ```
 
-### 4.2 节点详情面板
+### 4.2 初始化状态组件
+
+```vue
+<template>
+  <div class="empty-state">
+    <div class="empty-icon">
+      <el-icon><Tree /></el-icon>
+    </div>
+    <h3>家族树为空</h3>
+    <p>点击下方按钮根据现有人物关系初始化家族树</p>
+    <el-button @click="initializeTree" type="primary">
+      <el-icon><Plus /></el-icon>
+      初始化家族树
+    </el-button>
+  </div>
+</template>
+```
+
+### 4.3 节点详情面板
 
 ```vue
 <template>
@@ -292,7 +496,7 @@ function assignLevels(
 </template>
 ```
 
-### 4.3 添加关系弹窗
+### 4.4 添加关系弹窗
 
 ```vue
 <template>
@@ -371,7 +575,8 @@ async def get_family_tree(
                 "id": int,
                 "source": int,
                 "target": int,
-                "relation_nature": str
+                "relation_nature": str,
+                "is_spousal": bool
             }]
         }
     """
@@ -412,12 +617,51 @@ async def get_family_tree(
     for relation in relations:
         edges.append({
             "id": relation.id,
-            "source": relation.parent_person_id,
-            "target": relation.child_person_id,
-            "relation_nature": relation.relation_nature
+            "source": relation.parent_id,
+            "target": relation.child_id,
+            "relation_nature": relation.relation_nature,
+            "is_spousal": False
         })
     
+    # 检测配偶关系
+    spouse_relations = detect_spousal_relations(relations, family_members)
+    edges.extend(spouse_relations)
+    
     return {"nodes": nodes, "edges": edges}
+
+def detect_spousal_relations(relations: list, members: list) -> list:
+    """
+    检测配偶关系（共同拥有子女的成员）
+    """
+    child_parents = {}
+    
+    for relation in relations:
+        child_id = relation.child_id
+        if child_id not in child_parents:
+            child_parents[child_id] = set()
+        child_parents[child_id].add(relation.parent_id)
+    
+    spouse_pairs = set()
+    
+    for child_id, parents in child_parents.items():
+        if len(parents) >= 2:
+            parent_list = list(parents)
+            for i in range(len(parent_list)):
+                for j in range(i + 1, len(parent_list)):
+                    pair = tuple(sorted([parent_list[i], parent_list[j]]))
+                    spouse_pairs.add(pair)
+    
+    result = []
+    for pair in spouse_pairs:
+        result.append({
+            "id": f"spouse-{pair[0]}-{pair[1]}",
+            "source": pair[0],
+            "target": pair[1],
+            "relation_nature": "qin",
+            "is_spousal": True
+        })
+    
+    return result
 ```
 
 ### 5.2 添加家族关系
@@ -444,8 +688,8 @@ async def add_family_relation(
     # 检查关系是否已存在
     existing = db.query(FamilyRelation).filter(
         FamilyRelation.user_id == current_user.id,
-        FamilyRelation.parent_person_id == parent_person_id,
-        FamilyRelation.child_person_id == child_person_id
+        FamilyRelation.parent_id == parent_person_id,
+        FamilyRelation.child_id == child_person_id
     ).first()
     
     if existing:
@@ -454,17 +698,14 @@ async def add_family_relation(
     # 创建关系
     relation = FamilyRelation(
         user_id=current_user.id,
-        parent_person_id=parent_person_id,
-        child_person_id=child_person_id,
+        parent_id=parent_person_id,
+        child_id=child_person_id,
         parent_type=parent_type,
         relation_nature=relation_nature
     )
     
     db.add(relation)
     db.commit()
-    
-    # 失效缓存
-    invalidate_relation_cache(db, current_user.id)
     
     return {"message": "添加成功"}
 ```
@@ -473,11 +714,52 @@ async def add_family_relation(
 
 ## 6. 样式设计
 
-### 6.1 节点样式
+### 6.1 空状态样式
+
+```scss
+.empty-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  height: 400px;
+  text-align: center;
+  
+  .empty-icon {
+    width: 80px;
+    height: 80px;
+    border-radius: 50%;
+    background: #E6F7FF;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin-bottom: 20px;
+    
+    :deep(.el-icon) {
+      font-size: 40px;
+      color: #409EFF;
+    }
+  }
+  
+  h3 {
+    font-size: 20px;
+    color: #303133;
+    margin-bottom: 8px;
+  }
+  
+  p {
+    font-size: 14px;
+    color: #909399;
+    margin-bottom: 24px;
+  }
+}
+```
+
+### 6.2 节点样式
 
 ```scss
 .family-node {
-  width: 160px;
+  width: 140px;
   padding: 12px;
   background: white;
   border: 2px solid #d9d9d9;
@@ -489,6 +771,7 @@ async def add_family_relation(
   transition: all 0.3s ease;
   position: relative;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+  user-select: none;
   
   &:hover {
     border-color: #409EFF;
@@ -507,8 +790,8 @@ async def add_family_relation(
 }
 
 .node-avatar {
-  width: 50px;
-  height: 50px;
+  width: 45px;
+  height: 45px;
   border-radius: 50%;
   background: #E6F7FF;
   display: flex;
@@ -518,7 +801,7 @@ async def add_family_relation(
   margin-bottom: 8px;
   
   span {
-    font-size: 20px;
+    font-size: 18px;
     font-weight: bold;
     color: #409EFF;
     
@@ -532,8 +815,8 @@ async def add_family_relation(
   position: absolute;
   bottom: -2px;
   right: -2px;
-  width: 20px;
-  height: 20px;
+  width: 18px;
+  height: 18px;
   border-radius: 50%;
   background: #666;
   color: white;
@@ -542,13 +825,31 @@ async def add_family_relation(
   align-items: center;
   justify-content: center;
 }
+
+.node-name {
+  font-size: 14px;
+  font-weight: 600;
+  color: #303133;
+  margin-bottom: 4px;
+}
+
+.node-date {
+  font-size: 12px;
+  color: #909399;
+}
 ```
 
-### 6.2 连线样式
+### 6.3 连线样式
 
 ```scss
 .vue-flow__edge-path {
   stroke-width: 2;
+  
+  // 配偶连线：水平实线
+  &.spousal-line {
+    stroke: #409EFF;
+    stroke-dasharray: none;
+  }
   
   // 亲生关系：实线
   &.relation-qin {
@@ -556,11 +857,42 @@ async def add_family_relation(
     stroke-dasharray: none;
   }
   
-  // 继亲/义亲：虚线
-  &.relation-ji,
-  &.relation-yi {
+  // 继亲：虚线
+  &.relation-ji {
     stroke: #999;
     stroke-dasharray: 8, 4;
+  }
+  
+  // 义亲：点状虚线
+  &.relation-yi {
+    stroke: #999;
+    stroke-dasharray: 2, 6;
+  }
+}
+
+// 连线交叉处理
+.vue-flow__edge {
+  &.cross-over {
+    z-index: 10;
+    
+    .vue-flow__edge-path {
+      stroke: #FF6B6B;
+      stroke-width: 3;
+    }
+    
+    &::before {
+      content: '';
+      position: absolute;
+      width: 12px;
+      height: 12px;
+      background: white;
+      border: 2px solid #FF6B6B;
+      border-radius: 50%;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      z-index: 11;
+    }
   }
 }
 ```
@@ -577,7 +909,7 @@ async def add_family_relation(
 | **悬停节点** | 显示亲属关系提示 + 快捷操作按钮 |
 | **滚轮** | 缩放画布 |
 | **拖拽空白区域** | 平移画布 |
-| **拖拽节点** | 移动节点位置 |
+| **拖拽节点** | 无效果（节点不可拖动） |
 
 ### 7.2 快捷操作按钮
 
@@ -599,39 +931,73 @@ async def add_family_relation(
 
 ---
 
-## 8. 性能优化
+## 8. 布局规范
 
-### 8.1 虚拟滚动
+### 8.1 宝塔式布局规则
 
-对于大型家族树，考虑使用虚拟滚动技术：
-
-```typescript
-// 仅渲染可视区域内的节点
-function getVisibleNodes(nodes: FamilyTreeNode[], viewport: Viewport): FamilyTreeNode[] {
-  return nodes.filter(node => {
-    return (
-      node.position.x >= viewport.left &&
-      node.position.x <= viewport.right &&
-      node.position.y >= viewport.top &&
-      node.position.y <= viewport.bottom
-    );
-  });
-}
+```
+          爷爷         奶奶
+          ┗━━━━┳━━━━┛
+                   │
+          爸爸         妈妈
+          ┗━━━━┳━━━━┛
+                   │
+           我        配偶
+           ┗━━┳━━┛
+               │
+       ┌──────┴──────┐
+       ▼             ▼
+     儿子           女儿
 ```
 
-### 8.2 缓存布局结果
+### 8.2 连线规范
+
+| 连线类型 | 样式 | 说明 |
+|----------|------|------|
+| 配偶连线 | 底部水平线汇合 | 从两人底部延伸水平线到中点汇合 |
+| 亲子连线 | 垂直实线（向下延伸分叉） | 从配偶汇合点向下延伸，分叉连接到子女 |
+| 亲生关系 | 实线 | `relation_nature = qin` |
+| 继亲关系 | 虚线（8,4） | `relation_nature = ji` |
+| 义亲关系 | 点状虚线（2,6） | `relation_nature = yi` |
+
+### 8.3 连线交叉处理
+
+对于二婚等复杂情况导致的连线交叉：
+
+```
+        父亲 ───────── 母亲
+              │
+              │  (实线)
+              ▼
+            子女
+              │
+              │  (虚线 - 继亲)
+              ▼
+        继母/继父 ────── 新配偶
+```
+
+交叉点处理：
+- 检测连线交叉位置
+- 在交叉点添加标记（红色圆点）
+- 上层连线在交叉点处略微抬高
+
+---
+
+## 9. 性能优化
+
+### 9.1 缓存布局结果
 
 ```typescript
-const layoutCache = new Map<string, FamilyTreeNode[]>();
+const layoutCache = new Map<string, { nodes: FamilyTreeNode[], edges: FamilyTreeEdge[] }>();
 
-function getLayout(nodes: FamilyTreeNode[], edges: FamilyTreeEdge[]): FamilyTreeNode[] {
+function getLayout(nodes: FamilyTreeNode[], edges: FamilyTreeEdge[]): { nodes: FamilyTreeNode[], edges: FamilyTreeEdge[] } {
   const cacheKey = JSON.stringify({ nodes, edges });
   
   if (layoutCache.has(cacheKey)) {
     return layoutCache.get(cacheKey)!;
   }
   
-  const result = calculateLayout(nodes, edges);
+  const result = calculatePagodaLayout(nodes, edges);
   layoutCache.set(cacheKey, result);
   
   return result;
@@ -640,71 +1006,20 @@ function getLayout(nodes: FamilyTreeNode[], edges: FamilyTreeEdge[]): FamilyTree
 
 ---
 
-## 9. 扩展性设计
+## 10. 安全考虑
 
-### 9.1 支持的扩展功能
-
-| 功能 | 描述 |
-|------|------|
-| **颜色主题** | 支持多种配色方案 |
-| **导出功能** | 支持导出为图片/PDF |
-| **打印功能** | 支持打印家谱树 |
-| **共享功能** | 支持生成分享链接 |
-| **搜索功能** | 支持搜索家族成员 |
-
-### 9.2 国际化支持
-
-```typescript
-const i18n = {
-  zh: {
-    father: '父亲',
-    mother: '母亲',
-    son: '儿子',
-    daughter: '女儿',
-    brother: '兄弟',
-    sister: '姐妹'
-  },
-  en: {
-    father: 'Father',
-    mother: 'Mother',
-    son: 'Son',
-    daughter: 'Daughter',
-    brother: 'Brother',
-    sister: 'Sister'
-  }
-};
-```
-
----
-
-## 10. 兼容性考虑
-
-| 平台 | 支持情况 | 备注 |
-|------|----------|------|
-| Chrome | ✅ 完全支持 | 推荐浏览器 |
-| Firefox | ✅ 完全支持 | |
-| Safari | ✅ 完全支持 | |
-| Edge | ✅ 完全支持 | |
-| 移动端 | ⚠️ 有限支持 | 触摸交互需要优化 |
-
----
-
-## 11. 安全考虑
-
-### 11.1 数据权限
+### 10.1 数据权限
 
 ```python
-# 确保用户只能访问自己的数据
 def get_family_tree(current_user: User, db: Session):
     return db.query(FamilyMember).filter(
         FamilyMember.user_id == current_user.id
     ).all()
 ```
 
-### 11.2 输入验证
+### 10.2 输入验证
 
 ```python
-# 验证关系数据
 def validate_relation(parent_id: int, child_id: int):
     if parent_id == child_id:
         raise HTTPException(status_code=400, detail="不能建立自己与自己的关系")
