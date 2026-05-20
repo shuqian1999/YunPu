@@ -32,8 +32,8 @@ class PersonGroupMember(Base):
     __tablename__ = "person_group_members"
 
     id = Column(Integer, primary_key=True, autoincrement=True)
-    group_id = Column(Integer, ForeignKey("person_groups.id"), nullable=False)
-    person_id = Column(Integer, nullable=False, index=True)
+    group_id = Column(Integer, ForeignKey("person_groups.id", ondelete="CASCADE"), nullable=False)
+    person_id = Column(Integer, ForeignKey("persons.id", ondelete="CASCADE"), nullable=False, index=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
 
     group = relationship("PersonGroup", back_populates="members")

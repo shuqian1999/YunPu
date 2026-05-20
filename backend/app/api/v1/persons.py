@@ -426,6 +426,7 @@ def delete_person(
     from app.models.family_member import FamilyMember
     from app.models.family_relation import FamilyRelation
     from app.models.family_calculated_relation import FamilyCalculatedRelation
+    from app.models.person_group import PersonGroupMember
     from sqlalchemy import or_
     
     db_person = db.query(Person).filter(
@@ -438,6 +439,11 @@ def delete_person(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="人物不存在"
         )
+    
+    # 删除人物在分组中的关联记录
+    db.query(PersonGroupMember).filter(
+        PersonGroupMember.person_id == person_id
+    ).delete()
     
     family_member = db.query(FamilyMember).filter(
         FamilyMember.person_id == person_id,
