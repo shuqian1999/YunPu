@@ -186,17 +186,17 @@ onMounted(() => {
   font-size: 28px;
 
   &.person-icon {
-    background: #E1F3FF;
-    color: #409EFF;
+    background: rgba(64, 158, 255, 0.1);
+    color: var(--primary-color, #409EFF);
   }
 
   &.event-icon {
-    background: #E1F3FF;
-    color: #409EFF;
+    background: rgba(64, 158, 255, 0.1);
+    color: var(--primary-color, #409EFF);
   }
 
   &.reminder-icon {
-    background: #E1F3FF;
+    background: rgba(64, 158, 255, 0.1);
     color: #409EFF;
   }
 }

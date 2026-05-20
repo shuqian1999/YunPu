@@ -102,15 +102,15 @@ const handleLogin = async () => {
   justify-content: center;
   align-items: center;
   min-height: 100vh;
-  background: linear-gradient(135deg, #E1F3FF 0%, #F5F7FA 100%);
+  background: var(--bg-color, #F5F7FA);
 }
 
 .login-card {
   width: 400px;
   padding: 48px;
-  background: #FFFFFF;
+  background: var(--card-bg, #FFFFFF);
   border-radius: 8px;
-  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.1);
+  box-shadow: var(--box-shadow, 0 4px 16px rgba(0, 0, 0, 0.1));
 }
 
 .login-header {

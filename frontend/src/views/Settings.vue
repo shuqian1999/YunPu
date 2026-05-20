@@ -338,7 +338,7 @@ onMounted(() => {
 .stat-item {
   text-align: center;
   padding: 24px;
-  background: #F5F7FA;
+  background: var(--bg-color, #F5F7FA);
   border-radius: 8px;
 }
 

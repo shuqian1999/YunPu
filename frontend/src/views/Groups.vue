@@ -450,7 +450,7 @@ onMounted(() => {
   border-radius: 4px;
   
   &:hover {
-    background-color: #F5F7FA;
+    background-color: var(--bg-color, #F5F7FA);
   }
   
   :deep(.el-checkbox__label) {

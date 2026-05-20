@@ -470,7 +470,7 @@ onUnmounted(() => {
 <style scoped>
 .family-tree-page {
   min-height: 100vh;
-  background: #f5f7fa;
+  background: var(--bg-color, #f5f7fa);
 }
 .page-title {
   font-size: 24px;

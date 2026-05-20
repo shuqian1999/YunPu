@@ -1167,7 +1167,7 @@ const handleToggleReminder = async (reminder) => {
 <style scoped>
 .person-detail {
   min-height: 100vh;
-  background: #f5f7fa;
+  background: var(--bg-color, #f5f7fa);
 }
 
 .person-name {
@@ -1216,11 +1216,11 @@ const handleToggleReminder = async (reminder) => {
   width: 160px;
   height: 160px;
   border-radius: 50%;
-  background: #f0f0f0;
+  background: var(--border-lighter, #f0f0f0);
   display: flex;
   align-items: center;
   justify-content: center;
-  border: 4px solid #409EFF;
+  border: 4px solid var(--primary-color, #409EFF);
 }
 
 .avatar-icon {
@@ -1433,13 +1433,13 @@ const handleToggleReminder = async (reminder) => {
 
 .relation-item {
   padding: 12px;
-  background: #f8f9fa;
+  background: var(--bg-color-light, #f8f9fa);
   border-radius: 8px;
 }
 
 .relation-item.clickable:hover {
   cursor: pointer;
-  background: #e8f4fd;
+  background: rgba(64, 158, 255, 0.1);
 }
 
 .relation-name {
@@ -1455,8 +1455,8 @@ const handleToggleReminder = async (reminder) => {
 }
 
 .nature-tag {
-  background: #fff3e0;
-  color: #fa8c16;
+  background: rgba(230, 162, 60, 0.1);
+  color: var(--warning-color, #fa8c16);
   padding: 2px 8px;
   border-radius: 4px;
   font-size: 11px;

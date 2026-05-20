@@ -77,8 +77,8 @@ const handleLogout = () => {
 }
 
 .layout-header {
-  background: #FFFFFF;
-  border-bottom: 1px solid #E4E7ED;
+  background: var(--card-bg, #FFFFFF);
+  border-bottom: 1px solid var(--border-color, #E4E7ED);
   display: flex;
   justify-content: space-between;
   align-items: center;
@@ -93,7 +93,7 @@ const handleLogout = () => {
 .app-title {
   font-size: 20px;
   font-weight: 600;
-  color: #409EFF;
+  color: var(--primary-color, #409EFF);
   margin: 0;
 }
 
@@ -107,8 +107,8 @@ const handleLogout = () => {
 }
 
 .layout-aside {
-  background: #FFFFFF;
-  border-right: 1px solid #E4E7ED;
+  background: var(--card-bg, #FFFFFF);
+  border-right: 1px solid var(--border-color, #E4E7ED);
 }
 
 .layout-menu {
@@ -117,7 +117,7 @@ const handleLogout = () => {
 }
 
 .layout-main {
-  background: #F5F7FA;
+  background: var(--bg-color, #F5F7FA);
   padding: 0;
   overflow-y: auto;
 }
