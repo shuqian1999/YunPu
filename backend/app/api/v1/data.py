@@ -17,21 +17,21 @@ async def export_data_json(
     from app.models.person import Person
     from app.models.event import Event
     from app.models.reminder import Reminder
-    from app.models.family_member import FamilyMember
     from app.models.family_relation import FamilyRelation
+    from app.models.spouse_relation import SpouseRelation
     
     persons = db.query(Person).all()
     events = db.query(Event).all()
     reminders = db.query(Reminder).all()
-    family_members = db.query(FamilyMember).all()
     family_relations = db.query(FamilyRelation).all()
+    spouse_relations = db.query(SpouseRelation).all()
     
     data = {
         "persons": [person.to_dict() for person in persons],
         "events": [event.to_dict() for event in events],
         "reminders": [reminder.to_dict() for reminder in reminders],
-        "family_members": [member.to_dict() for member in family_members],
         "family_relations": [relation.to_dict() for relation in family_relations],
+        "spouse_relations": [relation.to_dict() for relation in spouse_relations],
         "exported_at": datetime.now().isoformat()
     }
     

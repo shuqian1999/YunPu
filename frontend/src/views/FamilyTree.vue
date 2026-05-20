@@ -55,10 +55,10 @@
           </el-form-item>
           <el-form-item label="关系">
             <el-select v-model="relationForm.relation">
-              <el-option label="是...的父亲" :value="0" />
-              <el-option label="是...的母亲" :value="1" />
-              <el-option label="是...的儿子" :value="2" />
-              <el-option label="是...的女儿" :value="3" />
+              <el-option label="父亲" :value="0" />
+              <el-option label="母亲" :value="1" />
+              <el-option label="儿子" :value="2" />
+              <el-option label="女儿" :value="3" />
             </el-select>
           </el-form-item>
           <el-form-item label="人物B">
@@ -95,11 +95,11 @@
           </el-form-item>
           <el-form-item label="关系">
             <el-select v-model="relationForm.relation">
-              <el-option label="是...的丈夫" :value="0" />
-              <el-option label="是...的妻子" :value="1" />
-              <el-option label="是...的姨太太" :value="2" />
-              <el-option label="是...的男朋友" :value="3" />
-              <el-option label="是...的女朋友" :value="4" />
+              <el-option label="丈夫" :value="0" />
+              <el-option label="妻子" :value="1" />
+              <el-option label="姨太太" :value="2" />
+              <el-option label="男朋友" :value="3" />
+              <el-option label="女朋友" :value="4" />
             </el-select>
           </el-form-item>
           <el-form-item label="人物B">
@@ -425,7 +425,10 @@ const renderTree = (rootNode) => {
   nodes.on('click', async (event, d) => {
     event.stopPropagation()
     // 获取与"我"的关系
-    const relationToMe = await getRelationBetween(d.data.id, 1).catch(() => null)
+    let relationToMe = null
+    if (d.data && d.data.id) {
+      relationToMe = await getRelationBetween(d.data.id, 1).catch(() => null)
+    }
     selectedPerson.value = {
       ...d.data,
       relation_to_me: relationToMe

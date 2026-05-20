@@ -334,10 +334,10 @@
             </el-form-item>
             <el-form-item label="关系">
               <el-select v-model="relationForm.relation">
-                <el-option label="是...的父亲" :value="0" />
-                <el-option label="是...的母亲" :value="1" />
-                <el-option label="是...的儿子" :value="2" />
-                <el-option label="是...的女儿" :value="3" />
+                <el-option label="父亲" :value="0" />
+                <el-option label="母亲" :value="1" />
+                <el-option label="儿子" :value="2" />
+                <el-option label="女儿" :value="3" />
               </el-select>
             </el-form-item>
             <el-form-item label="关系性质">
@@ -364,11 +364,11 @@
             </el-form-item>
             <el-form-item label="关系">
               <el-select v-model="relationForm.relation">
-                <el-option label="是...的丈夫" :value="0" />
-                <el-option label="是...的妻子" :value="1" />
-                <el-option label="是...的姨太太" :value="2" />
-                <el-option label="是...的男朋友" :value="3" />
-                <el-option label="是...的女朋友" :value="4" />
+                <el-option label="丈夫" :value="0" />
+                <el-option label="妻子" :value="1" />
+                <el-option label="姨太太" :value="2" />
+                <el-option label="男朋友" :value="3" />
+                <el-option label="女朋友" :value="4" />
               </el-select>
             </el-form-item>
             <el-form-item label="关系性质">
@@ -776,7 +776,7 @@ const handleDeleteRelation = async (rel) => {
       type: 'warning'
     })
 
-    if (rel.relation_type?.startsWith('spouse')) {
+    if (typeof rel.relation_type === 'string' && rel.relation_type.startsWith('spouse')) {
       await deleteSpouseRelation(personId, rel.person_id)
     } else {
       await deleteFamilyRelation(personId, rel.person_id)

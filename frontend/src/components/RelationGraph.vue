@@ -122,8 +122,7 @@ import { ref, computed, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { Plus, Minus, Refresh } from '@element-plus/icons-vue'
 import { ElMessage } from 'element-plus'
-import { getCalculatedRelations } from '@/api/family'
-import { getPerson } from '@/api/persons'
+import { getRelationsToMe } from '@/api/family'
 
 const router = useRouter()
 const loading = ref(false)
@@ -151,7 +150,7 @@ const svgRef = ref(null)
 const loadGraph = async () => {
   loading.value = true
   try {
-    const relations = await getCalculatedRelations()
+    const relations = await getRelationsToMe()
 
     if (!relations || relations.length === 0) {
       nodes.value = []
@@ -159,46 +158,38 @@ const loadGraph = async () => {
       return
     }
 
-    // 获取每个关系对应的人物信息
+    // 获取"我"的信息（作为中心节点）
+    const meNode = {
+      id: 1,
+      name: '我',
+      relation_name: '',
+      relation_level: 0,
+      is_blood: true,
+      is_me: true
+    }
+
     const nodeMap = new Map()
+    nodeMap.set(1, meNode)
+
     const edgeList = []
 
     for (const relation of relations) {
-      if (!nodeMap.has(relation.person_id)) {
-        try {
-          const person = await getPerson(relation.person_id)
-          nodeMap.set(relation.person_id, {
-            id: relation.person_id,
-            name: person.nickname || `${person.first_name || ''}${person.last_name || ''}`.trim() || '未知',
-            relation_name: relation.relation_name,
-            relation_level: relation.relation_level,
-            is_blood: relation.is_blood,
-            is_me: person.is_me
-          })
-        } catch (e) {
-          console.error('获取人物信息失败:', e)
-        }
-      }
+      nodeMap.set(relation.person_id, {
+        id: relation.person_id,
+        name: relation.name || '未知',
+        relation_name: relation.relation_name || '',
+        relation_level: 1,
+        is_blood: relation.relation_nature === 0,
+        is_me: false
+      })
 
-      // 找到"我"的节点，建立边
-      if (relation.relation_level === 0) {
-        const meNode = nodeMap.get(relation.person_id)
-        if (meNode) {
-          meNode.is_me = true
-        }
-      } else {
-        // 找到 me 节点建立边
-        const meRelation = relations.find(r => r.relation_level === 0)
-        if (meRelation) {
-          edgeList.push({
-            id: `${meRelation.person_id}-${relation.person_id}`,
-            source: meRelation.person_id,
-            target: relation.person_id,
-            relation_name: relation.relation_name,
-            is_blood: relation.is_blood
-          })
-        }
-      }
+      edgeList.push({
+        id: `1-${relation.person_id}`,
+        source: 1,
+        target: relation.person_id,
+        relation_name: relation.relation_name || '',
+        is_blood: relation.relation_nature === 0
+      })
     }
 
     nodes.value = Array.from(nodeMap.values())
