@@ -5,17 +5,10 @@
         <h1 class="app-title">云谱</h1>
       </div>
       <div class="header-right">
-        <el-dropdown @command="handleCommand">
-          <span class="user-dropdown">
-            <el-icon><User /></el-icon>
-            <span class="username">用户</span>
-          </span>
-          <template #dropdown>
-            <el-dropdown-menu>
-              <el-dropdown-item command="logout">退出登录</el-dropdown-item>
-            </el-dropdown-menu>
-          </template>
-        </el-dropdown>
+        <el-button type="danger" text @click="handleLogout">
+          <el-icon><SwitchButton /></el-icon>
+          退出登录
+        </el-button>
       </div>
     </el-header>
 
@@ -38,6 +31,10 @@
             <el-icon><Guide /></el-icon>
             <span>家族树</span>
           </el-menu-item>
+          <el-menu-item index="/settings">
+            <el-icon><Setting /></el-icon>
+            <span>设置</span>
+          </el-menu-item>
         </el-menu>
       </el-aside>
 
@@ -52,19 +49,17 @@
 import { computed } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { ElMessage } from 'element-plus'
-import { User, Odometer, Guide } from '@element-plus/icons-vue'
+import { User, Odometer, Guide, Setting, SwitchButton } from '@element-plus/icons-vue'
 
 const router = useRouter()
 const route = useRoute()
 
 const activeMenu = computed(() => route.path)
 
-const handleCommand = (command) => {
-  if (command === 'logout') {
-    localStorage.removeItem('token')
-    ElMessage.success('已退出登录')
-    router.push('/login')
-  }
+const handleLogout = () => {
+  localStorage.removeItem('token')
+  ElMessage.success('已退出登录')
+  router.push('/login')
 }
 </script>
 
@@ -97,25 +92,6 @@ const handleCommand = (command) => {
 .header-right {
   display: flex;
   align-items: center;
-}
-
-.user-dropdown {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  cursor: pointer;
-  padding: 8px 12px;
-  border-radius: 4px;
-  transition: background-color 0.3s;
-
-  &:hover {
-    background-color: #F5F7FA;
-  }
-}
-
-.username {
-  font-size: 14px;
-  color: #606266;
 }
 
 .main-container {
