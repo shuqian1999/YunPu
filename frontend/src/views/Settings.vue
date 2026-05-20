@@ -321,12 +321,28 @@ onMounted(() => {
 
 .settings-card {
   margin-bottom: 16px;
+  background: var(--card-bg, #ffffff);
+  border: 1px solid var(--border-color, #dcdfe6);
+
+  :deep(.el-card) {
+    background: var(--card-bg, #ffffff);
+    border-color: var(--border-color, #dcdfe6);
+  }
+
+  :deep(.el-card__header) {
+    background: var(--card-bg, #ffffff);
+    border-bottom: 1px solid var(--border-color, #dcdfe6);
+  }
+
+  :deep(.el-card__body) {
+    background: var(--card-bg, #ffffff);
+  }
 }
 
 .card-title {
   font-size: 18px;
   font-weight: 500;
-  color: #303133;
+  color: var(--text-primary, #303133);
 }
 
 .stats-grid {
@@ -338,20 +354,20 @@ onMounted(() => {
 .stat-item {
   text-align: center;
   padding: 24px;
-  background: var(--bg-color, #F5F7FA);
+  background: var(--bg-color-light, #F5F7FA);
   border-radius: 8px;
 }
 
 .stat-value {
   font-size: 32px;
   font-weight: 600;
-  color: #409EFF;
+  color: var(--primary-color, #409EFF);
   line-height: 1.2;
 }
 
 .stat-label {
   font-size: 14px;
-  color: #909399;
+  color: var(--text-secondary, #909399);
   margin-top: 8px;
 }
 
