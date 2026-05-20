@@ -4,27 +4,41 @@
       <template #content>
         <span class="page-title">家族树</span>
       </template>
-      <template #extra>
-        <el-button @click="refreshTree" type="primary" size="small">
-          <el-icon><Refresh /></el-icon>
-          刷新
-        </el-button>
-        <el-button @click="handleRecalculateRelations" type="warning" size="small">
-          <el-icon><Edit /></el-icon>
-          重新计算关系
-        </el-button>
-        <el-button @click="addAllPersons" type="info" size="small">
-          <el-icon><Document /></el-icon>
-          导入所有人物
-        </el-button>
-        <el-button @click="addRelation" type="success" size="small">
-          <el-icon><Plus /></el-icon>
-          添加关系
-        </el-button>
-      </template>
     </el-page-header>
 
-    <div ref="treeContainer" class="tree-container"></div>
+    <div class="view-tabs">
+      <el-radio-group v-model="viewMode" size="default">
+        <el-radio-button value="tree">树状图</el-radio-button>
+        <el-radio-button value="graph">关系图谱</el-radio-button>
+      </el-radio-group>
+
+      <div class="view-actions">
+        <template v-if="viewMode === 'tree'">
+          <el-button @click="refreshTree" type="primary" size="small">
+            <el-icon><Refresh /></el-icon>
+            刷新
+          </el-button>
+          <el-button @click="handleRecalculateRelations" type="warning" size="small">
+            <el-icon><Edit /></el-icon>
+            重新计算关系
+          </el-button>
+          <el-button @click="addAllPersons" type="info" size="small">
+            <el-icon><Document /></el-icon>
+            导入所有人物
+          </el-button>
+          <el-button @click="addRelation" type="success" size="small">
+            <el-icon><Plus /></el-icon>
+            添加关系
+          </el-button>
+        </template>
+      </div>
+    </div>
+
+    <!-- 树状图视图 -->
+    <div v-show="viewMode === 'tree'" ref="treeContainer" class="tree-container"></div>
+
+    <!-- 关系图谱视图 -->
+    <RelationGraph v-show="viewMode === 'graph'" />
 
     <el-dialog title="添加家庭关系" v-model="showAddRelation">
       <el-form :model="relationForm" label-width="80px">
@@ -106,10 +120,12 @@ import { Refresh, Plus, Close, Edit, Document } from '@element-plus/icons-vue'
 import { getFamilyTree, addFamilyRelation, getRelationsToMe, recalculateRelations, addFamilyMember } from '@/api/family'
 import { getPersons } from '@/api/persons'
 import { ElMessage } from 'element-plus'
+import RelationGraph from '@/components/RelationGraph.vue'
 
 const router = useRouter()
 
 const treeContainer = ref(null)
+const viewMode = ref('tree')
 const selectedPerson = ref(null)
 const showAddRelation = ref(false)
 const availablePersons = ref([])
@@ -459,6 +475,19 @@ onUnmounted(() => {
 .page-title {
   font-size: 24px;
   font-weight: bold;
+}
+.view-tabs {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 16px;
+  padding: 12px 16px;
+  background: var(--el-bg-color, white);
+  border-radius: 8px;
+}
+.view-actions {
+  display: flex;
+  gap: 8px;
 }
 .tree-container {
   padding: 20px;

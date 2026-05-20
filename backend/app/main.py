@@ -12,6 +12,8 @@ from app.models.person import Person
 from app.models.event import Event
 from app.models.reminder import Reminder
 from app.models.event_type import EventType
+from app.models.notification import Notification
+from app.models.person_group import PersonGroup, PersonGroupMember
 from app.core.security import hash_password
 
 # 确保上传目录存在
@@ -33,6 +35,13 @@ app.add_middleware(
 @app.on_event("startup")
 def startup_event():
   Base.metadata.create_all(bind=engine)
+  
+  # 启动定时任务调度器
+  try:
+    from app.tasks.scheduler import start_scheduler
+    start_scheduler()
+  except ImportError:
+    print("注意: 定时任务功能不可用，请安装 apscheduler: pip install apscheduler")
   
   db = SessionLocal()
   try:
@@ -60,3 +69,9 @@ def startup_event():
 
 app.mount("/uploads", StaticFiles(directory=settings.upload_dir), name="uploads")
 app.include_router(api_router, prefix="/api/v1")
+
+
+@app.get("/api/v1/health")
+async def health_check():
+    """健康检查端点"""
+    return {"status": "ok", "service": "yunpu-backend"}

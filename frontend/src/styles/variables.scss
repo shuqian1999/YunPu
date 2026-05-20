@@ -1,0 +1,124 @@
+/* 云谱系统 - 主题变量 */
+
+:root {
+  /* 主色调 */
+  --primary-color: #409EFF;
+  --primary-light: #79bbff;
+  --primary-lighter: #a0cfff;
+  --primary-dark: #337ecc;
+  --primary-darker: #2b5a8a;
+
+  /* 背景色 */
+  --bg-color: #f5f7fa;
+  --bg-color-light: #ffffff;
+  --bg-color-dark: #1a1a1a;
+  --card-bg: #ffffff;
+  --card-bg-dark: #2d2d2d;
+
+  /* 文字颜色 */
+  --text-primary: #303133;
+  --text-regular: #606266;
+  --text-secondary: #909399;
+  --text-placeholder: #c0c4cc;
+
+  /* 边框颜色 */
+  --border-color: #dcdfe6;
+  --border-light: #e4e7ed;
+  --border-lighter: #ebeef5;
+
+  /* 阴影 */
+  --box-shadow: 0 2px 12px 0 rgba(0, 0, 0, 0.1);
+  --box-shadow-light: 0 2px 8px 0 rgba(0, 0, 0, 0.06);
+
+  /* 成功/警告/危险颜色 */
+  --success-color: #67c23a;
+  --warning-color: #e6a23c;
+  --danger-color: #f56c6c;
+  --info-color: #909399;
+}
+
+/* 深色模式 */
+.dark {
+  /* 主色调 - 深色模式下稍作调整 */
+  --primary-color: #409EFF;
+  --primary-light: #79bbff;
+  --primary-lighter: #337ecc;
+  --primary-dark: #a0cfff;
+  --primary-darker: #79bbff;
+
+  /* 背景色 */
+  --bg-color: #0d1117;
+  --bg-color-light: #161b22;
+  --bg-color-dark: #010409;
+  --card-bg: #161b22;
+
+  /* 文字颜色 */
+  --text-primary: #e6edf3;
+  --text-regular: #c9d1d9;
+  --text-secondary: #8b949e;
+  --text-placeholder: #6e7681;
+
+  /* 边框颜色 */
+  --border-color: #30363d;
+  --border-light: #21262d;
+  --border-lighter: #484f58;
+
+  /* 阴影 */
+  --box-shadow: 0 2px 12px 0 rgba(0, 0, 0, 0.4);
+  --box-shadow-light: 0 2px 8px 0 rgba(0, 0, 0, 0.3);
+
+  /* 成功/警告/危险颜色 */
+  --success-color: #3fb950;
+  --warning-color: #d29922;
+  --danger-color: #f85149;
+  --info-color: #8b949e;
+}
+
+/* 全局样式 */
+html.dark {
+  background-color: var(--bg-color);
+}
+
+html.dark body {
+  background-color: var(--bg-color);
+  color: var(--text-primary);
+}
+
+/* Element Plus 深色模式覆盖 */
+.dark {
+  /* 输入框 */
+  --el-input-bg-color: var(--card-bg);
+  --el-input-border-color: var(--border-color);
+  --el-input-text-color: var(--text-primary);
+
+  /* 卡片 */
+  --el-card-bg-color: var(--card-bg);
+
+  /* 菜单 */
+  --el-menu-bg-color: var(--card-bg);
+  --el-menu-text-color: var(--text-regular);
+  --el-menu-hover-bg-color: var(--bg-color-light);
+
+  /* 按钮 */
+  --el-button-bg-color: var(--primary-color);
+  --el-button-text-color: #fff;
+
+  /* 表格 */
+  --el-table-bg-color: var(--card-bg);
+  --el-table-tr-bg-color: var(--card-bg);
+  --el-table-header-bg-color: var(--bg-color-light);
+  --el-table-text-color: var(--text-regular);
+  --el-table-border-color: var(--border-color);
+
+  /* 对话框 */
+  --el-dialog-bg-color: var(--card-bg);
+
+  /* 下拉菜单 */
+  --el-dropdown-menu-bg-color: var(--card-bg);
+
+  /* 弹出框 */
+  --el-popover-bg-color: var(--card-bg);
+
+  /* 消息提示 */
+  --el-message-bg-color: var(--card-bg);
+}

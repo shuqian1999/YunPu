@@ -5,6 +5,8 @@
         <h1 class="app-title">云谱</h1>
       </div>
       <div class="header-right">
+        <ThemeToggle style="margin-right: 12px;" />
+        <NotificationBell style="margin-right: 12px;" />
         <el-button type="danger" text @click="handleLogout">
           <el-icon><SwitchButton /></el-icon>
           退出登录
@@ -54,6 +56,8 @@ import { computed } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { ElMessage } from 'element-plus'
 import { User, Odometer, Guide, Setting, SwitchButton, CollectionTag } from '@element-plus/icons-vue'
+import NotificationBell from './NotificationBell.vue'
+import ThemeToggle from './ThemeToggle.vue'
 
 const router = useRouter()
 const route = useRoute()

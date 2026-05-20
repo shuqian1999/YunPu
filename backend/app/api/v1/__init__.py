@@ -12,6 +12,7 @@ from app.api.v1.settings import router as settings_router
 from app.api.v1.data import router as data_router
 from app.api.v1.groups import router as groups_router
 from app.api.v1.search import router as search_router
+from app.api.v1.notifications import router as notifications_router
 
 api_router = APIRouter()
 api_router.include_router(auth_router)
@@ -26,3 +27,4 @@ api_router.include_router(settings_router)
 api_router.include_router(data_router)
 api_router.include_router(groups_router)
 api_router.include_router(search_router)
+api_router.include_router(notifications_router)
