@@ -1174,6 +1174,7 @@ const handleToggleReminder = async (reminder) => {
   font-size: 24px;
   font-weight: bold;
   margin-right: 12px;
+  color: var(--text-primary, #303133);
 }
 
 .detail-content {
@@ -1183,13 +1184,14 @@ const handleToggleReminder = async (reminder) => {
 }
 
 .info-section {
-  background: white;
+  background: var(--card-bg, white);
   border-radius: 12px;
   padding: 24px;
   margin-bottom: 20px;
   display: flex;
   gap: 32px;
-  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.08);
+  box-shadow: var(--box-shadow, 0 2px 12px rgba(0, 0, 0, 0.08));
+  border: 1px solid var(--border-color, #dcdfe6);
 }
 
 .avatar-wrapper {
@@ -1209,7 +1211,7 @@ const handleToggleReminder = async (reminder) => {
   height: 160px;
   border-radius: 50%;
   object-fit: cover;
-  border: 4px solid #409EFF;
+  border: 4px solid var(--primary-color, #409EFF);
 }
 
 .avatar-placeholder {
@@ -1224,7 +1226,7 @@ const handleToggleReminder = async (reminder) => {
 }
 
 .avatar-icon {
-  color: #409EFF;
+  color: var(--primary-color, #409EFF);
 }
 
 .avatar-overlay {
@@ -1241,7 +1243,7 @@ const handleToggleReminder = async (reminder) => {
   color: white;
   opacity: 0;
   transition: opacity 0.3s;
-  border: 4px solid #409EFF;
+  border: 4px solid var(--primary-color, #409EFF);
   box-sizing: border-box;
 }
 
@@ -1273,7 +1275,7 @@ const handleToggleReminder = async (reminder) => {
   right: 4px;
   width: 32px;
   height: 32px;
-  background: #666;
+  background: var(--text-secondary, #666);
   border-radius: 50%;
   display: flex;
   align-items: center;
@@ -1291,7 +1293,7 @@ const handleToggleReminder = async (reminder) => {
   display: flex;
   justify-content: space-between;
   padding: 12px 0;
-  border-bottom: 1px solid #f0f0f0;
+  border-bottom: 1px solid var(--border-lighter, #f0f0f0);
 }
 
 .info-row:last-child {
@@ -1299,22 +1301,52 @@ const handleToggleReminder = async (reminder) => {
 }
 
 .info-row .label {
-  color: #999;
+  color: var(--text-secondary, #999);
   font-size: 14px;
 }
 
 .info-row .value {
-  color: #333;
+  color: var(--text-primary, #333);
   font-size: 14px;
   font-weight: 500;
 }
 
 .info-row .edit-input {
   width: 200px;
+
+  :deep(.el-input__wrapper) {
+    background: var(--card-bg, #ffffff);
+    box-shadow: 0 0 0 1px var(--border-color, #dcdfe6);
+  }
+
+  :deep(.el-input__inner) {
+    color: var(--text-primary, #303133);
+  }
 }
 
 .info-row .edit-textarea {
   width: 300px;
+
+  :deep(.el-textarea__inner) {
+    background: var(--card-bg, #ffffff);
+    color: var(--text-primary, #303133);
+    box-shadow: 0 0 0 1px var(--border-color, #dcdfe6);
+  }
+}
+
+/* 日期选择器 */
+:deep(.el-date-editor.el-input) {
+  --el-input-bg-color: var(--card-bg, #ffffff);
+}
+
+/* 选择框 */
+:deep(.el-select) {
+  --el-select-input-focus-border-color: var(--primary-color);
+
+  .el-input__wrapper {
+    background: var(--card-bg, #ffffff);
+    box-shadow: 0 0 0 1px var(--border-color, #dcdfe6);
+  }
 }
 
 .custom-fields-view {
@@ -1327,12 +1359,14 @@ const handleToggleReminder = async (reminder) => {
 }
 
 .custom-field-name {
-  color: #999;
+  color: var(--text-secondary, #999);
   margin-right: 8px;
+  flex: 1;
 }
 
 .custom-field-value {
-  color: #333;
+  color: var(--text-primary, #333);
+  flex: 2;
 }
 
 .custom-fields-edit {
@@ -1344,22 +1378,24 @@ const handleToggleReminder = async (reminder) => {
   gap: 8px;
   align-items: center;
   margin-bottom: 8px;
-}
 
-.custom-field-name {
-  flex: 1;
-}
+  .el-input__wrapper {
+    background: var(--card-bg, #ffffff);
+    box-shadow: 0 0 0 1px var(--border-color, #dcdfe6);
+  }
 
-.custom-field-value {
-  flex: 2;
+  .el-input__inner {
+    color: var(--text-primary, #303133);
+  }
 }
 
 .groups-section {
-  background: white;
+  background: var(--card-bg, white);
   border-radius: 12px;
   padding: 24px;
   margin-bottom: 20px;
-  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.08);
+  box-shadow: var(--box-shadow, 0 2px 12px rgba(0, 0, 0, 0.08));
+  border: 1px solid var(--border-color, #dcdfe6);
 }
 
 .groups-content {
@@ -1382,17 +1418,18 @@ const handleToggleReminder = async (reminder) => {
 
   .group-desc {
     margin-left: 8px;
-    color: #909399;
+    color: var(--text-secondary, #909399);
     font-size: 12px;
   }
 }
 
 .relations-section {
-  background: white;
+  background: var(--card-bg, white);
   border-radius: 12px;
   padding: 24px;
   margin-bottom: 20px;
-  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.08);
+  box-shadow: var(--box-shadow, 0 2px 12px rgba(0, 0, 0, 0.08));
+  border: 1px solid var(--border-color, #dcdfe6);
 }
 
 .section-header {
@@ -1406,6 +1443,7 @@ const handleToggleReminder = async (reminder) => {
   font-size: 18px;
   font-weight: bold;
   margin: 0;
+  color: var(--text-primary, #303133);
 }
 
 .relations-content {
@@ -1419,10 +1457,10 @@ const handleToggleReminder = async (reminder) => {
 
 .relation-group h4 {
   font-size: 14px;
-  color: #666;
+  color: var(--text-regular, #666);
   margin-bottom: 12px;
   padding-bottom: 8px;
-  border-bottom: 2px solid #f0f0f0;
+  border-bottom: 2px solid var(--border-lighter, #f0f0f0);
 }
 
 .relation-list {
@@ -1445,12 +1483,12 @@ const handleToggleReminder = async (reminder) => {
 .relation-name {
   font-size: 14px;
   font-weight: 600;
-  color: #333;
+  color: var(--text-primary, #333);
 }
 
 .relation-type {
   font-size: 12px;
-  color: #999;
+  color: var(--text-secondary, #999);
   margin-top: 4px;
 }
 
@@ -1464,10 +1502,10 @@ const handleToggleReminder = async (reminder) => {
 }
 
 .empty {
-  color: #999;
+  color: var(--text-secondary, #999);
   font-size: 13px;
   padding: 12px;
-  background: #f8f9fa;
+  background: var(--bg-color-light, #f8f9fa);
   border-radius: 8px;
   text-align: center;
 }
@@ -1492,18 +1530,28 @@ const handleToggleReminder = async (reminder) => {
 .card-title {
   font-size: 16px;
   font-weight: 600;
-  color: #303133;
+  color: var(--text-primary, #303133);
 }
 
 .events-card,
 .reminders-card {
+  background: var(--card-bg, white);
+  border: 1px solid var(--border-color, #dcdfe6);
+
+  :deep(.el-card) {
+    background: var(--card-bg, white);
+    border-color: var(--border-color, #dcdfe6);
+  }
+
   :deep(.el-card__body) {
     padding: 20px;
+    background: var(--card-bg, white);
   }
 
   :deep(.el-card__header) {
     padding: 16px 20px;
-    border-bottom: 1px solid #EBEEF5;
+    border-bottom: 1px solid var(--border-color, #EBEEF5);
+    background: var(--card-bg, white);
   }
 }
 
@@ -1525,6 +1573,7 @@ const handleToggleReminder = async (reminder) => {
 .event-title {
   font-weight: 600;
   font-size: 14px;
+  color: var(--text-primary, #333);
 }
 
 .event-type-tag {
@@ -1543,7 +1592,7 @@ const handleToggleReminder = async (reminder) => {
 
 .reminder-item {
   padding: 12px;
-  border-bottom: 1px solid #ebeef5;
+  border-bottom: 1px solid var(--border-lighter, #ebeef5);
 }
 
 .reminder-item:last-child {
@@ -1558,7 +1607,7 @@ const handleToggleReminder = async (reminder) => {
 }
 
 .reminder-date {
-  color: #909399;
+  color: var(--text-secondary, #909399);
   font-size: 12px;
 }
 
