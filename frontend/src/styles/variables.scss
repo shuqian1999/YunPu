@@ -105,6 +105,10 @@ html.dark body {
   --el-input-border-color: var(--border-color);
   --el-input-text-color: var(--text-primary);
   --el-input-placeholder-color: var(--text-placeholder);
+  --el-input-hover-border-color: var(--primary-color);
+  --el-input-focus-border-color: var(--primary-color);
+  --el-input-hover-bg-color: var(--card-bg);
+  --el-input-focus-bg-color: var(--card-bg);
 
   /* 卡片 */
   --el-card-bg-color: var(--card-bg);
@@ -162,6 +166,10 @@ html.dark body {
   /* 选择器 */
   --el-select-dropdown-bg-color: var(--card-bg);
   --el-select-dropdown-border-color: var(--border-color);
+  --el-select-input-focus-border-color: var(--primary-color);
+  --el-select-multiple-input-focus-border-color: var(--primary-color);
+  --el-select-option-hover-bg-color: var(--bg-color-light);
+  --el-select-option-selected-bg-color: rgba(64, 158, 255, 0.15);
 
   /* 时间线 */
   --el-timeline-item-bg-color: var(--card-bg);

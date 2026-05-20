@@ -264,14 +264,17 @@ onMounted(() => {
 .page-title {
   font-size: 24px;
   font-weight: 500;
-  color: #303133;
+  color: var(--text-primary, #303133);
 }
 
 .search-card {
   margin-bottom: 24px;
-  
+  background: var(--card-bg, #ffffff);
+  border-color: var(--border-color, #dcdfe6);
+
   :deep(.el-card__body) {
     padding: 16px;
+    background: var(--card-bg, #ffffff);
   }
 }
 
@@ -284,10 +287,32 @@ onMounted(() => {
 
 .search-input {
   width: 280px;
+
+  :deep(.el-input__wrapper) {
+    background: var(--card-bg, #ffffff);
+    box-shadow: 0 0 0 1px var(--border-color, #dcdfe6);
+  }
+
+  :deep(.el-input__inner) {
+    color: var(--text-primary, #303133);
+  }
+
+  :deep(.el-input__inner::placeholder) {
+    color: var(--text-placeholder, #c0c4cc);
+  }
 }
 
 .filter-select {
   width: 140px;
+
+  :deep(.el-input__wrapper) {
+    background: var(--card-bg, #ffffff);
+    box-shadow: 0 0 0 1px var(--border-color, #dcdfe6);
+  }
+
+  :deep(.el-input__inner) {
+    color: var(--text-primary, #303133);
+  }
 }
 
 .group-option-content {
@@ -317,17 +342,20 @@ onMounted(() => {
 .person-card {
   cursor: pointer;
   transition: all 0.3s;
-  
+  background: var(--card-bg, #ffffff);
+  border-color: var(--border-color, #dcdfe6);
+
   &:hover {
-    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.15);
+    box-shadow: var(--box-shadow, 0 4px 16px rgba(0, 0, 0, 0.15));
     transform: translateY(-2px);
   }
-  
+
   :deep(.el-card__body) {
     padding: 24px;
     display: flex;
     flex-direction: column;
     align-items: center;
+    background: var(--card-bg, #ffffff);
   }
 }
 
@@ -344,13 +372,13 @@ onMounted(() => {
 .person-name {
   font-size: 18px;
   font-weight: 500;
-  color: #303133;
+  color: var(--text-primary, #303133);
   margin-bottom: 4px;
 }
 
 .person-nickname {
   font-size: 14px;
-  color: #909399;
+  color: var(--text-secondary, #909399);
   margin-bottom: 8px;
 }
 
@@ -359,7 +387,7 @@ onMounted(() => {
   justify-content: center;
   gap: 4px;
   flex-wrap: wrap;
-  
+
   .el-tag {
     margin: 0;
   }
