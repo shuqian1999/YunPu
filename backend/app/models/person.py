@@ -26,3 +26,22 @@ class Person(Base):
 
     events = relationship("Event", back_populates="person")
     reminders = relationship("Reminder", back_populates="person")
+
+    def to_dict(self):
+        return {
+            "id": self.id,
+            "first_name": self.first_name,
+            "last_name": self.last_name,
+            "nickname": self.nickname,
+            "gender": self.gender,
+            "birth_date": self.birth_date.isoformat() if self.birth_date else None,
+            "death_date": self.death_date.isoformat() if self.death_date else None,
+            "country": self.country,
+            "hometown": self.hometown,
+            "residence": self.residence,
+            "custom_fields": self.custom_fields,
+            "is_me": self.is_me,
+            "avatar_url": self.avatar_url,
+            "created_at": self.created_at.isoformat() if self.created_at else None,
+            "updated_at": self.updated_at.isoformat() if self.updated_at else None
+        }

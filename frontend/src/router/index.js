@@ -4,6 +4,7 @@ import Dashboard from '../views/Dashboard.vue'
 import Persons from '../views/Persons.vue'
 import PersonDetail from '../views/PersonDetail.vue'
 import FamilyTree from '../views/FamilyTree.vue'
+import Settings from '../views/Settings.vue'
 
 const routes = [
   {
@@ -34,6 +35,12 @@ const routes = [
     path: '/family/tree',
     name: 'FamilyTree',
     component: FamilyTree,
+    meta: { requiresAuth: true }
+  },
+  {
+    path: '/settings',
+    name: 'Settings',
+    component: Settings,
     meta: { requiresAuth: true }
   },
   {

@@ -20,3 +20,16 @@ class Event(Base):
 
     person = relationship("Person", back_populates="events")
     event_type = relationship("EventType", back_populates="events")
+
+    def to_dict(self):
+        return {
+            "id": self.id,
+            "person_id": self.person_id,
+            "event_type_id": self.event_type_id,
+            "title": self.title,
+            "description": self.description,
+            "event_date": self.event_date.isoformat() if self.event_date else None,
+            "location": self.location,
+            "created_at": self.created_at.isoformat() if self.created_at else None,
+            "updated_at": self.updated_at.isoformat() if self.updated_at else None
+        }

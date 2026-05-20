@@ -1,0 +1,101 @@
+from fastapi import APIRouter, Depends, HTTPException, status
+from sqlalchemy.orm import Session
+from app.core.database import get_db
+from app.models.user import User
+from app.schemas.settings import UserSettingsUpdate, UserSettingsResponse, SystemSettingsResponse
+from app.core.security import get_current_user, hash_password, verify_password
+
+router = APIRouter(prefix="/settings", tags=["设置"])
+
+
+@router.get("/user", response_model=UserSettingsResponse)
+async def get_user_settings(
+    current_user: User = Depends(get_current_user)
+):
+    return {
+        "username": current_user.username,
+        "email": current_user.email,
+        "display_name": current_user.display_name,
+        "avatar_url": current_user.avatar_url
+    }
+
+
+@router.put("/user", response_model=UserSettingsResponse)
+async def update_user_settings(
+    settings: UserSettingsUpdate,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    if settings.email:
+        current_user.email = settings.email
+    if settings.display_name:
+        current_user.display_name = settings.display_name
+    if settings.avatar_url:
+        current_user.avatar_url = settings.avatar_url
+    
+    db.commit()
+    db.refresh(current_user)
+    
+    return {
+        "username": current_user.username,
+        "email": current_user.email,
+        "display_name": current_user.display_name,
+        "avatar_url": current_user.avatar_url
+    }
+
+
+@router.post("/change-password")
+async def change_password(
+    old_password: str,
+    new_password: str,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    if not verify_password(old_password, current_user.password_hash):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="原密码错误"
+        )
+    
+    current_user.password_hash = hash_password(new_password)
+    db.commit()
+    
+    return {"message": "密码修改成功"}
+
+
+@router.get("/system", response_model=SystemSettingsResponse)
+async def get_system_settings(
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    from app.models.person import Person
+    from app.models.event import Event
+    from app.models.reminder import Reminder
+    
+    person_count = db.query(Person).filter(
+        Person.user_id == current_user.id
+    ).count()
+    
+    event_count = db.query(Event).filter(
+        Event.user_id == current_user.id
+    ).count()
+    
+    reminder_count = db.query(Reminder).filter(
+        Reminder.user_id == current_user.id
+    ).count()
+    
+    return {
+        "person_count": person_count,
+        "event_count": event_count,
+        "reminder_count": reminder_count,
+        "database_size": get_database_size(db)
+    }
+
+
+def get_database_size(db: Session) -> str:
+    import os
+    database_path = db.bind.url.database
+    if os.path.exists(database_path):
+        size = os.path.getsize(database_path)
+        return f"{size / 1024 / 1024:.2f} MB"
+    return "0 MB"

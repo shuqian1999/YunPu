@@ -15,3 +15,12 @@ class FamilyRelation(Base):
     user = relationship("User", back_populates="family_relations")
     parent = relationship("FamilyMember", foreign_keys=[parent_id], back_populates="relations_as_parent")
     child = relationship("FamilyMember", foreign_keys=[child_id], back_populates="relations_as_child")
+
+    def to_dict(self):
+        return {
+            "id": self.id,
+            "parent_id": self.parent_id,
+            "child_id": self.child_id,
+            "parent_type": self.parent_type,
+            "relation_nature": self.relation_nature
+        }
