@@ -143,6 +143,30 @@
         </div>
       </div>
 
+      <div class="groups-section">
+        <div class="section-header">
+          <h3 class="section-title">所属分组</h3>
+          <el-button @click="showEditGroups = true" type="primary" size="small">
+            <el-icon><Edit /></el-icon>
+            编辑分组
+          </el-button>
+        </div>
+        <div class="groups-content">
+          <div v-if="personGroups.length === 0" class="empty">暂无分组</div>
+          <div v-else class="groups-list">
+            <el-tag
+              v-for="group in personGroups"
+              :key="group.id"
+              :color="group.color"
+              effect="dark"
+              class="group-tag"
+            >
+              {{ group.name }}
+            </el-tag>
+          </div>
+        </div>
+      </div>
+
       <div class="relations-section">
         <div class="section-header">
           <h3 class="section-title">家庭关系</h3>
@@ -303,6 +327,27 @@
         </el-card>
       </div>
     </div>
+
+    <el-dialog title="编辑分组" v-model="showEditGroups" width="500px">
+      <el-checkbox-group v-model="selectedGroups" v-loading="groupsLoading">
+        <div v-if="allGroups.length === 0" class="empty">暂无可用分组，请先创建分组</div>
+        <el-checkbox
+          v-for="group in allGroups"
+          :key="group.id"
+          :label="group.id"
+          class="group-checkbox"
+        >
+          <el-tag :color="group.color" size="small" effect="dark">
+            {{ group.name }}
+          </el-tag>
+          <span v-if="group.description" class="group-desc">{{ group.description }}</span>
+        </el-checkbox>
+      </el-checkbox-group>
+      <template #footer>
+        <el-button @click="showEditGroups = false">取消</el-button>
+        <el-button type="primary" @click="handleSaveGroups">保存</el-button>
+      </template>
+    </el-dialog>
 
     <el-dialog title="编辑家族关系" v-model="showEditFamily" width="560px">
       <el-form :model="familyForm" label-width="80px">
@@ -497,6 +542,7 @@ import { ref, onMounted, reactive, computed, watch } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { User, MapLocation, Edit, Camera, Loading, Plus, Delete } from '@element-plus/icons-vue'
 import { getPerson, getPersonEvents, getPersonReminders, getPersonDetail, updatePersonFamily, getPersons, updatePerson, uploadPersonAvatar, deletePersonAvatar } from '@/api/persons'
+import { getGroups, addPersonToGroup, removePersonFromGroup } from '@/api/groups'
 import { createEvent, updateEvent, deleteEvent } from '@/api/events'
 import { createReminder, updateReminder, deleteReminder } from '@/api/reminders'
 import { getEventTypes } from '@/api/event_types'
@@ -515,6 +561,13 @@ const activeTab = ref('events')
 const countries = ref([])
 const availableFamilyMembers = ref([])
 const showEditFamily = ref(false)
+
+// 分组管理
+const showEditGroups = ref(false)
+const allGroups = ref([])
+const personGroups = ref([])
+const selectedGroups = ref([])
+const groupsLoading = ref(false)
 
 const showEventDialog = ref(false)
 const eventDialogTitle = ref('添加事件')
@@ -863,13 +916,14 @@ const submitFamily = async () => {
 
 const loadData = async () => {
   try {
-    const [personData, eventsData, remindersData, countriesData, personsData, eventTypesData] = await Promise.all([
+    const [personData, eventsData, remindersData, countriesData, personsData, eventTypesData, groupsData] = await Promise.all([
       getPersonDetail(personId),
       getPersonEvents(personId),
       getPersonReminders(personId),
       getCountries(),
       getPersons(),
-      getEventTypes()
+      getEventTypes(),
+      getGroups()
     ])
 
     personInfo.value = personData
@@ -878,6 +932,11 @@ const loadData = async () => {
     reminders.value = remindersData
     countries.value = countriesData
     eventTypes.value = eventTypesData
+    allGroups.value = groupsData
+
+    // 获取该人物所属的分组
+    // 这里需要后端提供获取人物分组的接口，暂时使用模拟数据
+    personGroups.value = []
 
     availableFamilyMembers.value = personsData.map(p => ({
       id: p.id,
@@ -897,6 +956,45 @@ watch(showEditFamily, (val) => {
     initFamilyForm()
   }
 })
+
+watch(showEditGroups, (val) => {
+  if (val) {
+    // 打开分组编辑对话框时，初始化已选分组
+    selectedGroups.value = personGroups.value.map(g => g.id)
+  }
+})
+
+// 分组管理函数
+const handleSaveGroups = async () => {
+  try {
+    const currentGroupIds = personGroups.value.map(g => g.id)
+    const newGroupIds = selectedGroups.value
+
+    // 需要添加的分组
+    const toAdd = newGroupIds.filter(id => !currentGroupIds.includes(id))
+    // 需要移除的分组
+    const toRemove = currentGroupIds.filter(id => !newGroupIds.includes(id))
+
+    // 执行添加操作
+    for (const groupId of toAdd) {
+      await addPersonToGroup(groupId, personId)
+    }
+
+    // 执行移除操作
+    for (const groupId of toRemove) {
+      await removePersonFromGroup(groupId, personId)
+    }
+
+    // 更新本地数据
+    personGroups.value = allGroups.value.filter(g => newGroupIds.includes(g.id))
+
+    showEditGroups.value = false
+    ElMessage.success('分组更新成功')
+  } catch (error) {
+    console.error('更新分组失败:', error)
+    ElMessage.error('更新分组失败')
+  }
+}
 
 const openEventDialog = (event = null) => {
   if (event) {
@@ -1254,6 +1352,39 @@ const handleToggleReminder = async (reminder) => {
 
 .custom-field-value {
   flex: 2;
+}
+
+.groups-section {
+  background: white;
+  border-radius: 12px;
+  padding: 24px;
+  margin-bottom: 20px;
+  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.08);
+}
+
+.groups-content {
+  .groups-list {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+
+  .group-tag {
+    margin: 0;
+  }
+}
+
+.group-checkbox {
+  display: flex;
+  align-items: center;
+  margin-bottom: 12px;
+  width: 100%;
+
+  .group-desc {
+    margin-left: 8px;
+    color: #909399;
+    font-size: 12px;
+  }
 }
 
 .relations-section {

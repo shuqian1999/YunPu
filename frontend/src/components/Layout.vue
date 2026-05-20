@@ -31,6 +31,10 @@
             <el-icon><Guide /></el-icon>
             <span>家族树</span>
           </el-menu-item>
+          <el-menu-item index="/groups">
+            <el-icon><CollectionTag /></el-icon>
+            <span>分组管理</span>
+          </el-menu-item>
           <el-menu-item index="/settings">
             <el-icon><Setting /></el-icon>
             <span>设置</span>
@@ -49,7 +53,7 @@
 import { computed } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { ElMessage } from 'element-plus'
-import { User, Odometer, Guide, Setting, SwitchButton } from '@element-plus/icons-vue'
+import { User, Odometer, Guide, Setting, SwitchButton, CollectionTag } from '@element-plus/icons-vue'
 
 const router = useRouter()
 const route = useRoute()

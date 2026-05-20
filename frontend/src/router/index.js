@@ -5,6 +5,7 @@ import Persons from '../views/Persons.vue'
 import PersonDetail from '../views/PersonDetail.vue'
 import FamilyTree from '../views/FamilyTree.vue'
 import Settings from '../views/Settings.vue'
+import Groups from '../views/Groups.vue'
 
 const routes = [
   {
@@ -41,6 +42,12 @@ const routes = [
     path: '/settings',
     name: 'Settings',
     component: Settings,
+    meta: { requiresAuth: true }
+  },
+  {
+    path: '/groups',
+    name: 'Groups',
+    component: Groups,
     meta: { requiresAuth: true }
   },
   {

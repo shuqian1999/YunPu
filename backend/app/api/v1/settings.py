@@ -2,46 +2,10 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 from app.core.database import get_db
 from app.models.user import User
-from app.schemas.settings import UserSettingsUpdate, UserSettingsResponse, SystemSettingsResponse
-from app.core.security import get_current_user, hash_password, verify_password
+from app.schemas.settings import SystemSettingsResponse
+from app.core.security import get_current_user, verify_password, hash_password
 
 router = APIRouter(prefix="/settings", tags=["设置"])
-
-
-@router.get("/user", response_model=UserSettingsResponse)
-async def get_user_settings(
-    current_user: User = Depends(get_current_user)
-):
-    return {
-        "username": current_user.username,
-        "email": current_user.email,
-        "display_name": current_user.display_name,
-        "avatar_url": current_user.avatar_url
-    }
-
-
-@router.put("/user", response_model=UserSettingsResponse)
-async def update_user_settings(
-    settings: UserSettingsUpdate,
-    current_user: User = Depends(get_current_user),
-    db: Session = Depends(get_db)
-):
-    if settings.email:
-        current_user.email = settings.email
-    if settings.display_name:
-        current_user.display_name = settings.display_name
-    if settings.avatar_url:
-        current_user.avatar_url = settings.avatar_url
-    
-    db.commit()
-    db.refresh(current_user)
-    
-    return {
-        "username": current_user.username,
-        "email": current_user.email,
-        "display_name": current_user.display_name,
-        "avatar_url": current_user.avatar_url
-    }
 
 
 @router.post("/change-password")
