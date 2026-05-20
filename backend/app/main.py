@@ -56,7 +56,6 @@ def startup_event():
       db.refresh(user)
       
       person = Person(
-        user_id=user.id,
         nickname="我",
         is_me=True
       )

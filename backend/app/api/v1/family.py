@@ -3,8 +3,6 @@ from sqlalchemy.orm import Session
 from typing import List, Dict
 
 from app.core.database import get_db
-from app.core.security import get_current_user
-from app.models.user import User
 from app.models.family_member import FamilyMember
 from app.models.family_relation import FamilyRelation
 from app.models.family_calculated_relation import FamilyCalculatedRelation
@@ -15,16 +13,11 @@ router = APIRouter(prefix="/family", tags=["家谱"])
 
 @router.get("/tree")
 def get_family_tree(
-    current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
-    family_members = db.query(FamilyMember).filter(
-        FamilyMember.user_id == current_user.id
-    ).all()
+    family_members = db.query(FamilyMember).all()
     
-    relations = db.query(FamilyRelation).filter(
-        FamilyRelation.user_id == current_user.id
-    ).all()
+    relations = db.query(FamilyRelation).all()
     
     nodes = []
     edges = []
@@ -59,12 +52,9 @@ def get_family_tree(
 
 @router.get("/relations")
 def get_calculated_relations(
-    current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
-    relations = db.query(FamilyCalculatedRelation).filter(
-        FamilyCalculatedRelation.user_id == current_user.id
-    ).all()
+    relations = db.query(FamilyCalculatedRelation).all()
     
     return [
         {
@@ -79,12 +69,9 @@ def get_calculated_relations(
 
 @router.get("/relations-to-me")
 def get_relations_to_me(
-    current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
-    """获取所有家族成员与当前用户('我')的关系"""
     me_person = db.query(Person).filter(
-        Person.user_id == current_user.id,
         Person.is_me == True
     ).first()
     
@@ -92,16 +79,13 @@ def get_relations_to_me(
         return []
     
     me_member = db.query(FamilyMember).filter(
-        FamilyMember.user_id == current_user.id,
         FamilyMember.person_id == me_person.id
     ).first()
     
     if not me_member:
         return []
     
-    relations = db.query(FamilyCalculatedRelation).filter(
-        FamilyCalculatedRelation.user_id == current_user.id
-    ).all()
+    relations = db.query(FamilyCalculatedRelation).all()
     
     return [
         {
@@ -116,13 +100,12 @@ def get_relations_to_me(
 
 @router.post("/recalculate")
 def recalculate_relations(
-    current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
     from app.services.family_service import FamilyService
     
     service = FamilyService(db)
-    service.recalculate_all_relations(current_user.id)
+    service.recalculate_all_relations()
     
     return {"message": "关系重新计算成功"}
 
@@ -130,13 +113,12 @@ def recalculate_relations(
 @router.post("/member")
 def add_family_member(
     person_id: int,
-    current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
     from app.services.family_service import FamilyService
     
     service = FamilyService(db)
-    member = service.add_family_member(current_user.id, person_id)
+    member = service.add_family_member(person_id)
     
     return {"id": member.id, "person_id": member.person_id}
 
@@ -145,26 +127,24 @@ def add_family_member(
 def add_family_relation(
     parent_person_id: int,
     child_person_id: int,
-    parent_type: str,  # father, mother
-    relation_nature: str = "qin",  # qin, ji, yi
-    current_user: User = Depends(get_current_user),
+    parent_type: str,
+    relation_nature: str = "qin",
     db: Session = Depends(get_db)
 ):
     from app.services.family_service import FamilyService
     
     service = FamilyService(db)
     
-    parent_member = service.add_family_member(current_user.id, parent_person_id)
-    child_member = service.add_family_member(current_user.id, child_person_id)
+    parent_member = service.add_family_member(parent_person_id)
+    child_member = service.add_family_member(child_person_id)
     
     relation = service.add_family_relation(
-        current_user.id,
         parent_member.id,
         child_member.id,
         parent_type,
         relation_nature
     )
     
-    service.recalculate_all_relations(current_user.id)
+    service.recalculate_all_relations()
     
     return {"id": relation.id, "message": "关系添加成功"}

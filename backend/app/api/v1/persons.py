@@ -5,10 +5,7 @@ import os
 import uuid
 
 from app.core.database import get_db
-from app.core.security import get_current_user
-from app.core.config import settings
 from app.models.person import Person
-from app.models.user import User
 from app.schemas.person import PersonCreate, PersonUpdate, PersonResponse
 
 router = APIRouter(prefix="/persons", tags=["人物"])
@@ -19,10 +16,9 @@ def get_persons(
     skip: int = 0,
     limit: int = 20,
     search: str = None,
-    current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
-    query = db.query(Person).filter(Person.user_id == current_user.id)
+    query = db.query(Person)
     
     if search:
         query = query.filter(
@@ -38,10 +34,9 @@ def get_persons(
 @router.post("", response_model=PersonResponse, status_code=status.HTTP_201_CREATED)
 def create_person(
     person: PersonCreate,
-    current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
-    db_person = Person(**person.model_dump(), user_id=current_user.id)
+    db_person = Person(**person.model_dump())
     db.add(db_person)
     db.commit()
     db.refresh(db_person)
@@ -51,14 +46,12 @@ def create_person(
 @router.get("/{person_id}/events", response_model=List[dict])
 def get_person_events(
     person_id: int,
-    current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
     from app.models.event import Event
     
     events = db.query(Event).filter(
-        Event.person_id == person_id,
-        Event.user_id == current_user.id
+        Event.person_id == person_id
     ).order_by(Event.event_date.desc()).all()
     
     return [
@@ -78,14 +71,12 @@ def get_person_events(
 @router.get("/{person_id}/reminders", response_model=List[dict])
 def get_person_reminders(
     person_id: int,
-    current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
     from app.models.reminder import Reminder
     
     reminders = db.query(Reminder).filter(
-        Reminder.person_id == person_id,
-        Reminder.user_id == current_user.id
+        Reminder.person_id == person_id
     ).order_by(Reminder.remind_date.asc()).all()
     
     return [
@@ -103,7 +94,6 @@ def get_person_reminders(
 @router.get("/{person_id}/relations")
 def get_person_relations(
     person_id: int,
-    current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
     from app.models.family_member import FamilyMember
@@ -111,21 +101,18 @@ def get_person_relations(
     from app.models.person import Person
     
     family_member = db.query(FamilyMember).filter(
-        FamilyMember.person_id == person_id,
-        FamilyMember.user_id == current_user.id
+        FamilyMember.person_id == person_id
     ).first()
     
     if not family_member:
         return {"parents": [], "children": []}
     
     parent_relations = db.query(FamilyRelation).filter(
-        FamilyRelation.child_id == family_member.id,
-        FamilyRelation.user_id == current_user.id
+        FamilyRelation.child_id == family_member.id
     ).all()
     
     children_relations = db.query(FamilyRelation).filter(
-        FamilyRelation.parent_id == family_member.id,
-        FamilyRelation.user_id == current_user.id
+        FamilyRelation.parent_id == family_member.id
     ).all()
     
     parents = []
@@ -165,18 +152,15 @@ def get_person_relations(
 @router.get("/{person_id}/detail")
 def get_person_detail(
     person_id: int,
-    current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
-    """获取人物详情（包含亲属关系）"""
     from app.models.family_member import FamilyMember
     from app.models.family_relation import FamilyRelation
     from app.models.person import Person
     from sqlalchemy import or_
     
     person = db.query(Person).filter(
-        Person.id == person_id,
-        Person.user_id == current_user.id
+        Person.id == person_id
     ).first()
     
     if not person:
@@ -186,8 +170,7 @@ def get_person_detail(
         )
     
     family_member = db.query(FamilyMember).filter(
-        FamilyMember.person_id == person_id,
-        FamilyMember.user_id == current_user.id
+        FamilyMember.person_id == person_id
     ).first()
     
     family = {
@@ -198,8 +181,7 @@ def get_person_detail(
 
     if family_member:
         parent_relations = db.query(FamilyRelation).filter(
-            FamilyRelation.child_id == family_member.id,
-            FamilyRelation.user_id == current_user.id
+            FamilyRelation.child_id == family_member.id
         ).all()
         
         for relation in parent_relations:
@@ -220,8 +202,7 @@ def get_person_detail(
                 (FamilyRelation.parent_id == family_member.id) | 
                 (FamilyRelation.child_id == family_member.id)
             ),
-            FamilyRelation.parent_type == "spouse",
-            FamilyRelation.user_id == current_user.id
+            FamilyRelation.parent_type == "spouse"
         ).all()
         
         for relation in spouse_relations:
@@ -239,8 +220,7 @@ def get_person_detail(
         
         children_relations = db.query(FamilyRelation).filter(
             FamilyRelation.parent_id == family_member.id,
-            FamilyRelation.parent_type != "spouse",
-            FamilyRelation.user_id == current_user.id
+            FamilyRelation.parent_type != "spouse"
         ).all()
         
         for relation in children_relations:
@@ -278,21 +258,18 @@ def get_person_detail(
 def update_person_family(
     person_id: int,
     family_data: dict,
-    current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
-    """更新人物的家族关系"""
     from app.models.family_member import FamilyMember
     from app.models.family_relation import FamilyRelation
     from sqlalchemy import or_
     
     family_member = db.query(FamilyMember).filter(
-        FamilyMember.person_id == person_id,
-        FamilyMember.user_id == current_user.id
+        FamilyMember.person_id == person_id
     ).first()
     
     if not family_member:
-        family_member = FamilyMember(user_id=current_user.id, person_id=person_id)
+        family_member = FamilyMember(person_id=person_id)
         db.add(family_member)
         db.flush()
     
@@ -300,23 +277,20 @@ def update_person_family(
         or_(
             FamilyRelation.parent_id == family_member.id,
             FamilyRelation.child_id == family_member.id
-        ),
-        FamilyRelation.user_id == current_user.id
+        )
     ).delete()
     
     if family_data.get("parents"):
         for parent in family_data["parents"]:
             parent_member = db.query(FamilyMember).filter(
-                FamilyMember.person_id == parent["id"],
-                FamilyMember.user_id == current_user.id
+                FamilyMember.person_id == parent["id"]
             ).first()
             if not parent_member:
-                parent_member = FamilyMember(user_id=current_user.id, person_id=parent["id"])
+                parent_member = FamilyMember(person_id=parent["id"])
                 db.add(parent_member)
                 db.flush()
             if parent_member:
                 relation = FamilyRelation(
-                    user_id=current_user.id,
                     parent_id=parent_member.id,
                     child_id=family_member.id,
                     parent_type=parent.get("parent_type", "father"),
@@ -327,16 +301,14 @@ def update_person_family(
     if family_data.get("spouses"):
         for spouse in family_data["spouses"]:
             spouse_member = db.query(FamilyMember).filter(
-                FamilyMember.person_id == spouse["id"],
-                FamilyMember.user_id == current_user.id
+                FamilyMember.person_id == spouse["id"]
             ).first()
             if not spouse_member:
-                spouse_member = FamilyMember(user_id=current_user.id, person_id=spouse["id"])
+                spouse_member = FamilyMember(person_id=spouse["id"])
                 db.add(spouse_member)
                 db.flush()
             if spouse_member:
                 relation = FamilyRelation(
-                    user_id=current_user.id,
                     parent_id=family_member.id,
                     child_id=spouse_member.id,
                     parent_type="spouse",
@@ -347,16 +319,14 @@ def update_person_family(
     if family_data.get("children"):
         for child in family_data["children"]:
             child_member = db.query(FamilyMember).filter(
-                FamilyMember.person_id == child["id"],
-                FamilyMember.user_id == current_user.id
+                FamilyMember.person_id == child["id"]
             ).first()
             if not child_member:
-                child_member = FamilyMember(user_id=current_user.id, person_id=child["id"])
+                child_member = FamilyMember(person_id=child["id"])
                 db.add(child_member)
                 db.flush()
             if child_member:
                 relation = FamilyRelation(
-                    user_id=current_user.id,
                     parent_id=family_member.id,
                     child_id=child_member.id,
                     parent_type=child.get("parent_type", "father"),
@@ -366,7 +336,7 @@ def update_person_family(
     
     db.commit()
     
-    invalidate_relation_cache(db, current_user.id)
+    invalidate_relation_cache(db)
     
     return {"message": "关系更新成功"}
 
@@ -374,12 +344,10 @@ def update_person_family(
 @router.get("/{person_id}", response_model=PersonResponse)
 def get_person(
     person_id: int,
-    current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
     person = db.query(Person).filter(
-        Person.id == person_id,
-        Person.user_id == current_user.id
+        Person.id == person_id
     ).first()
     
     if not person:
@@ -395,12 +363,10 @@ def get_person(
 def update_person(
     person_id: int,
     person: PersonUpdate,
-    current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
     db_person = db.query(Person).filter(
-        Person.id == person_id,
-        Person.user_id == current_user.id
+        Person.id == person_id
     ).first()
     
     if not db_person:
@@ -420,7 +386,6 @@ def update_person(
 @router.delete("/{person_id}", status_code=status.HTTP_204_NO_CONTENT)
 def delete_person(
     person_id: int,
-    current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
     from app.models.family_member import FamilyMember
@@ -430,8 +395,7 @@ def delete_person(
     from sqlalchemy import or_
     
     db_person = db.query(Person).filter(
-        Person.id == person_id,
-        Person.user_id == current_user.id
+        Person.id == person_id
     ).first()
     
     if not db_person:
@@ -440,14 +404,12 @@ def delete_person(
             detail="人物不存在"
         )
     
-    # 删除人物在分组中的关联记录
     db.query(PersonGroupMember).filter(
         PersonGroupMember.person_id == person_id
     ).delete()
     
     family_member = db.query(FamilyMember).filter(
-        FamilyMember.person_id == person_id,
-        FamilyMember.user_id == current_user.id
+        FamilyMember.person_id == person_id
     ).first()
     
     if family_member:
@@ -455,13 +417,10 @@ def delete_person(
             or_(
                 FamilyRelation.parent_id == family_member.id,
                 FamilyRelation.child_id == family_member.id
-            ),
-            FamilyRelation.user_id == current_user.id
+            )
         ).delete()
         
-        db.query(FamilyCalculatedRelation).filter(
-            FamilyCalculatedRelation.user_id == current_user.id
-        ).delete()
+        db.query(FamilyCalculatedRelation).delete()
         
         db.delete(family_member)
     
@@ -469,13 +428,10 @@ def delete_person(
     db.commit()
 
 
-def invalidate_relation_cache(db: Session, user_id: int):
-    """失效关系缓存"""
+def invalidate_relation_cache(db: Session):
     from app.models.family_calculated_relation import FamilyCalculatedRelation
     
-    db.query(FamilyCalculatedRelation).filter(
-        FamilyCalculatedRelation.user_id == user_id
-    ).delete()
+    db.query(FamilyCalculatedRelation).delete()
     db.commit()
 
 
@@ -483,13 +439,12 @@ def invalidate_relation_cache(db: Session, user_id: int):
 async def upload_person_avatar(
     person_id: int,
     file: UploadFile = File(...),
-    current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
-    """上传人物头像"""
+    from app.core.config import settings
+    
     person = db.query(Person).filter(
-        Person.id == person_id,
-        Person.user_id == current_user.id
+        Person.id == person_id
     ).first()
     
     if not person:
@@ -542,13 +497,10 @@ async def upload_person_avatar(
 @router.delete("/{person_id}/avatar")
 def delete_person_avatar(
     person_id: int,
-    current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
-    """删除人物头像"""
     person = db.query(Person).filter(
-        Person.id == person_id,
-        Person.user_id == current_user.id
+        Person.id == person_id
     ).first()
     
     if not person:

@@ -8,23 +8,12 @@ from app.utils.lunar import LunarConverter
 
 
 class ReminderService:
-    """提醒检查服务"""
-
     def __init__(self, db: Session):
         self.db = db
 
-    def check_reminders(self, user_id: int) -> List[Notification]:
-        """检查并生成今日提醒通知
-
-        Args:
-            user_id: 用户ID
-
-        Returns:
-            生成的通知列表
-        """
+    def check_reminders(self) -> List[Notification]:
         today = date.today()
         reminders = self.db.query(Reminder).filter(
-            Reminder.user_id == user_id,
             Reminder.enabled == True
         ).all()
 
@@ -33,11 +22,10 @@ class ReminderService:
         for reminder in reminders:
             remind_date = self._calculate_remind_date(reminder, today)
             if remind_date == today:
-                notification = self._create_notification(reminder, user_id)
+                notification = self._create_notification(reminder)
                 self.db.add(notification)
                 notifications.append(notification)
 
-                # 一次性提醒触发后禁用
                 if reminder.repeat_type == "once":
                     reminder.enabled = False
 
@@ -47,21 +35,11 @@ class ReminderService:
         return notifications
 
     def _calculate_remind_date(self, reminder: Reminder, today: date) -> date:
-        """计算提醒日期
-
-        Args:
-            reminder: 提醒对象
-            today: 今天的日期
-
-        Returns:
-            应该触发提醒的日期
-        """
         base_date = reminder.remind_date
 
         if reminder.is_lunar and LunarConverter.is_lunar_date_available():
             return self._calculate_lunar_remind_date(base_date, today)
 
-        # 公历日期计算
         repeat_type = getattr(reminder, 'repeat_type', 'once')
         if repeat_type == "once":
             return base_date
@@ -80,35 +58,22 @@ class ReminderService:
         return base_date
 
     def _calculate_lunar_remind_date(self, base_date: date, today: date) -> date:
-        """计算农历提醒日期
-
-        Args:
-            base_date: 基准日期
-            today: 今天的日期
-
-        Returns:
-            应该触发提醒的日期
-        """
         lunar_year, lunar_month, lunar_day, is_leap = LunarConverter.solar_to_lunar(base_date)
 
-        # 获取今年的相同农历日期
         solar_date = LunarConverter.lunar_to_solar(today.year, lunar_month, lunar_day, is_leap)
 
         if solar_date is None:
             return base_date
 
-        # 如果已过，寻找明年的
         if solar_date < today:
             solar_date = LunarConverter.lunar_to_solar(today.year + 1, lunar_month, lunar_day, is_leap)
 
         return solar_date if solar_date else base_date
 
-    def _create_notification(self, reminder: Reminder, user_id: int) -> Notification:
-        """创建通知对象"""
+    def _create_notification(self, reminder: Reminder) -> Notification:
         content = self._generate_reminder_content(reminder)
 
         return Notification(
-            user_id=user_id,
             type="reminder",
             title=reminder.title,
             content=content,
@@ -116,7 +81,6 @@ class ReminderService:
         )
 
     def _generate_reminder_content(self, reminder: Reminder) -> str:
-        """生成提醒内容"""
         content_parts = []
 
         if reminder.person_id:

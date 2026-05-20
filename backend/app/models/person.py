@@ -8,7 +8,6 @@ class Person(Base):
     __tablename__ = "persons"
 
     id = Column(Integer, primary_key=True, autoincrement=True)
-    user_id = Column(Integer, nullable=False, index=True)
     first_name = Column(String(50))
     last_name = Column(String(50))
     nickname = Column(String(50))

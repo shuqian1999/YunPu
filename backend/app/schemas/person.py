@@ -27,7 +27,6 @@ class PersonUpdate(PersonBase):
 
 class PersonResponse(PersonBase):
     id: int
-    user_id: int
     avatar_url: Optional[str] = None
     created_at: datetime
     updated_at: Optional[datetime] = None

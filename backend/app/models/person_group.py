@@ -8,7 +8,6 @@ class PersonGroup(Base):
     __tablename__ = "person_groups"
 
     id = Column(Integer, primary_key=True, autoincrement=True)
-    user_id = Column(Integer, nullable=False, index=True)
     name = Column(String(50), nullable=False)
     color = Column(String(10), default="#409EFF")
     description = Column(String(200))

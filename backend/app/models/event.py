@@ -8,7 +8,6 @@ class Event(Base):
     __tablename__ = "events"
 
     id = Column(Integer, primary_key=True, autoincrement=True)
-    user_id = Column(Integer, nullable=False, index=True)
     person_id = Column(Integer, ForeignKey("persons.id"), nullable=True)
     event_type_id = Column(Integer, ForeignKey("event_types.id"), nullable=True)
     title = Column(String(200), nullable=False)

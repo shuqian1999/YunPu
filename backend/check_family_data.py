@@ -20,7 +20,7 @@ for p in persons:
 print("\n=== FamilyMembers ===")
 members = db.query(FamilyMember).all()
 for m in members:
-    print(f"Member: {m.id}, person_id: {m.person_id}, user_id: {m.user_id}")
+    print(f"Member: {m.id}, person_id: {m.person_id}")
 
 print("\n=== FamilyRelations ===")
 relations = db.query(FamilyRelation).all()

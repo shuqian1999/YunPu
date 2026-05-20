@@ -3,8 +3,6 @@ from fastapi.responses import StreamingResponse
 from sqlalchemy.orm import Session
 from datetime import datetime
 from app.core.database import get_db
-from app.core.security import get_current_user
-from app.models.user import User
 import json
 import csv
 from io import StringIO
@@ -14,7 +12,6 @@ router = APIRouter(prefix="/data", tags=["数据管理"])
 
 @router.get("/export/json")
 async def export_data_json(
-    current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
     from app.models.person import Person
@@ -23,11 +20,11 @@ async def export_data_json(
     from app.models.family_member import FamilyMember
     from app.models.family_relation import FamilyRelation
     
-    persons = db.query(Person).filter(Person.user_id == current_user.id).all()
-    events = db.query(Event).filter(Event.user_id == current_user.id).all()
-    reminders = db.query(Reminder).filter(Reminder.user_id == current_user.id).all()
-    family_members = db.query(FamilyMember).filter(FamilyMember.user_id == current_user.id).all()
-    family_relations = db.query(FamilyRelation).filter(FamilyRelation.user_id == current_user.id).all()
+    persons = db.query(Person).all()
+    events = db.query(Event).all()
+    reminders = db.query(Reminder).all()
+    family_members = db.query(FamilyMember).all()
+    family_relations = db.query(FamilyRelation).all()
     
     data = {
         "persons": [person.to_dict() for person in persons],
@@ -49,12 +46,11 @@ async def export_data_json(
 
 @router.get("/export/csv")
 async def export_data_csv(
-    current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
     from app.models.person import Person
     
-    persons = db.query(Person).filter(Person.user_id == current_user.id).all()
+    persons = db.query(Person).all()
     
     output = StringIO()
     writer = csv.writer(output)
@@ -86,7 +82,6 @@ async def export_data_csv(
 @router.post("/import/json")
 async def import_data_json(
     file: UploadFile = File(...),
-    current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
     content = await file.read()
@@ -99,11 +94,11 @@ async def import_data_json(
     
     for person_data in data.get("persons", []):
         from app.models.person import Person
-        # 移除可能存在的id字段，让数据库自动生成
         person_data.pop('id', None)
         person_data.pop('created_at', None)
         person_data.pop('updated_at', None)
-        person = Person(**person_data, user_id=current_user.id)
+        person_data.pop('user_id', None)
+        person = Person(**person_data)
         db.add(person)
         imported_count += 1
     

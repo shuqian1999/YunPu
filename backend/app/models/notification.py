@@ -8,7 +8,6 @@ class Notification(Base):
     __tablename__ = "notifications"
 
     id = Column(Integer, primary_key=True, autoincrement=True)
-    user_id = Column(Integer, nullable=False, index=True)
     type = Column(String(50), nullable=False)  # reminder, event, system
     title = Column(String(200), nullable=False)
     content = Column(Text)

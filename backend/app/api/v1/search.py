@@ -3,8 +3,6 @@ from sqlalchemy.orm import Session
 from typing import List, Optional
 from app.core.database import get_db
 from app.models.person import Person
-from app.core.security import get_current_user
-from app.models.user import User
 
 router = APIRouter(prefix="/search", tags=["搜索"])
 
@@ -15,10 +13,9 @@ async def search_persons(
     group_id: Optional[int] = Query(None, description="分组ID"),
     gender: Optional[int] = Query(None, description="性别"),
     is_alive: Optional[bool] = Query(None, description="是否在世"),
-    current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
-    persons_query = db.query(Person).filter(Person.user_id == current_user.id)
+    persons_query = db.query(Person)
     
     if query:
         search_filter = (

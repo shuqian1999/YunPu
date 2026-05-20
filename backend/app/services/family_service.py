@@ -10,9 +10,8 @@ class FamilyService:
     def __init__(self, db: Session):
         self.db = db
     
-    def recalculate_all_relations(self, user_id: int):
+    def recalculate_all_relations(self):
         me_person = self.db.query(Person).filter(
-            Person.user_id == user_id,
             Person.is_me == True
         ).first()
         
@@ -20,20 +19,15 @@ class FamilyService:
             return
         
         me_member = self.db.query(FamilyMember).filter(
-            FamilyMember.person_id == me_person.id,
-            FamilyMember.user_id == user_id
+            FamilyMember.person_id == me_person.id
         ).first()
         
         if not me_member:
             return
         
-        self.db.query(FamilyCalculatedRelation).filter(
-            FamilyCalculatedRelation.user_id == user_id
-        ).delete()
+        self.db.query(FamilyCalculatedRelation).delete()
         
-        all_members = self.db.query(FamilyMember).filter(
-            FamilyMember.user_id == user_id
-        ).all()
+        all_members = self.db.query(FamilyMember).all()
         
         for member in all_members:
             if member.id == me_member.id:
@@ -42,7 +36,6 @@ class FamilyService:
             relation = self._calculate_relation(me_member, member)
             if relation:
                 calculated_relation = FamilyCalculatedRelation(
-                    user_id=user_id,
                     person_id=member.person_id,
                     relation_name=relation['name'],
                     relation_level=relation['level'],
@@ -98,8 +91,7 @@ class FamilyService:
     def _is_direct_child(self, from_member: FamilyMember, to_member: FamilyMember) -> Optional[Dict]:
         relation = self.db.query(FamilyRelation).filter(
             FamilyRelation.parent_id == from_member.id,
-            FamilyRelation.child_id == to_member.id,
-            FamilyRelation.user_id == from_member.user_id
+            FamilyRelation.child_id == to_member.id
         ).first()
         
         if relation:
@@ -109,8 +101,7 @@ class FamilyService:
     def _is_direct_parent(self, from_member: FamilyMember, to_member: FamilyMember) -> Optional[Dict]:
         relation = self.db.query(FamilyRelation).filter(
             FamilyRelation.parent_id == to_member.id,
-            FamilyRelation.child_id == from_member.id,
-            FamilyRelation.user_id == from_member.user_id
+            FamilyRelation.child_id == from_member.id
         ).first()
         
         if relation:
@@ -119,13 +110,11 @@ class FamilyService:
     
     def _is_sibling(self, member1: FamilyMember, member2: FamilyMember) -> Optional[Dict]:
         parents1 = self.db.query(FamilyRelation).filter(
-            FamilyRelation.child_id == member1.id,
-            FamilyRelation.user_id == member1.user_id
+            FamilyRelation.child_id == member1.id
         ).all()
         
         parents2 = self.db.query(FamilyRelation).filter(
-            FamilyRelation.child_id == member2.id,
-            FamilyRelation.user_id == member2.user_id
+            FamilyRelation.child_id == member2.id
         ).all()
         
         parent_ids1 = {p.parent_id for p in parents1}
@@ -153,8 +142,7 @@ class FamilyService:
                 return path
             
             parents = self.db.query(FamilyRelation).filter(
-                FamilyRelation.child_id == current.id,
-                FamilyRelation.user_id == current.user_id
+                FamilyRelation.child_id == current.id
             ).all()
             
             for parent_relation in parents:
@@ -166,8 +154,7 @@ class FamilyService:
                     queue.append((parent_member, path + [('up', parent_relation)]))
             
             children = self.db.query(FamilyRelation).filter(
-                FamilyRelation.parent_id == current.id,
-                FamilyRelation.user_id == current.user_id
+                FamilyRelation.parent_id == current.id
             ).all()
             
             for child_relation in children:
@@ -244,25 +231,23 @@ class FamilyService:
             'is_blood': is_blood
         }
     
-    def add_family_member(self, user_id: int, person_id: int) -> FamilyMember:
+    def add_family_member(self, person_id: int) -> FamilyMember:
         existing = self.db.query(FamilyMember).filter(
-            FamilyMember.person_id == person_id,
-            FamilyMember.user_id == user_id
+            FamilyMember.person_id == person_id
         ).first()
         
         if existing:
             return existing
         
-        member = FamilyMember(user_id=user_id, person_id=person_id)
+        member = FamilyMember(person_id=person_id)
         self.db.add(member)
         self.db.commit()
         self.db.refresh(member)
         return member
     
-    def add_family_relation(self, user_id: int, parent_id: int, child_id: int, 
+    def add_family_relation(self, parent_id: int, child_id: int, 
                            parent_type: str, relation_nature: str = "qin") -> FamilyRelation:
         relation = FamilyRelation(
-            user_id=user_id,
             parent_id=parent_id,
             child_id=child_id,
             parent_type=parent_type,

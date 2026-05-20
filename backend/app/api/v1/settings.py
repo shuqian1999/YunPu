@@ -29,24 +29,15 @@ async def change_password(
 
 @router.get("/system", response_model=SystemSettingsResponse)
 async def get_system_settings(
-    current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
     from app.models.person import Person
     from app.models.event import Event
     from app.models.reminder import Reminder
     
-    person_count = db.query(Person).filter(
-        Person.user_id == current_user.id
-    ).count()
-    
-    event_count = db.query(Event).filter(
-        Event.user_id == current_user.id
-    ).count()
-    
-    reminder_count = db.query(Reminder).filter(
-        Reminder.user_id == current_user.id
-    ).count()
+    person_count = db.query(Person).count()
+    event_count = db.query(Event).count()
+    reminder_count = db.query(Reminder).count()
     
     return {
         "person_count": person_count,

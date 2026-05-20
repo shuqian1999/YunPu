@@ -3,11 +3,9 @@ from sqlalchemy.orm import Session
 from datetime import datetime, timedelta
 
 from app.core.database import get_db
-from app.core.security import get_current_user
 from app.models.person import Person
 from app.models.event import Event
 from app.models.reminder import Reminder
-from app.models.user import User
 from app.schemas.dashboard import DashboardStats, DashboardEvent, DashboardReminder
 
 router = APIRouter(prefix="/dashboard", tags=["仪表盘"])
@@ -15,20 +13,11 @@ router = APIRouter(prefix="/dashboard", tags=["仪表盘"])
 
 @router.get("/stats", response_model=DashboardStats)
 def get_dashboard_stats(
-    current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
-    person_count = db.query(Person).filter(
-        Person.user_id == current_user.id
-    ).count()
-    
-    event_count = db.query(Event).filter(
-        Event.user_id == current_user.id
-    ).count()
-    
-    reminder_count = db.query(Reminder).filter(
-        Reminder.user_id == current_user.id
-    ).count()
+    person_count = db.query(Person).count()
+    event_count = db.query(Event).count()
+    reminder_count = db.query(Reminder).count()
     
     return {
         "person_count": person_count,
@@ -40,12 +29,9 @@ def get_dashboard_stats(
 @router.get("/events", response_model=list[DashboardEvent])
 def get_dashboard_events(
     limit: int = 10,
-    current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
-    events = db.query(Event).filter(
-        Event.user_id == current_user.id
-    ).order_by(Event.event_date.desc()).limit(limit).all()
+    events = db.query(Event).order_by(Event.event_date.desc()).limit(limit).all()
     
     result = []
     for event in events:
@@ -74,14 +60,12 @@ def get_dashboard_events(
 @router.get("/reminders", response_model=list[DashboardReminder])
 def get_dashboard_reminders(
     days: int = 30,
-    current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
     start_date = datetime.now().date()
     end_date = start_date + timedelta(days=days)
     
     reminders = db.query(Reminder).filter(
-        Reminder.user_id == current_user.id,
         Reminder.remind_date >= start_date,
         Reminder.remind_date <= end_date
     ).order_by(Reminder.remind_date.asc()).all()

@@ -8,7 +8,6 @@ class Reminder(Base):
     __tablename__ = "reminders"
 
     id = Column(Integer, primary_key=True, autoincrement=True)
-    user_id = Column(Integer, nullable=False, index=True)
     person_id = Column(Integer, ForeignKey("persons.id"), nullable=True)
     title = Column(String(200), nullable=False)
     remind_date = Column(Date, nullable=False, index=True)

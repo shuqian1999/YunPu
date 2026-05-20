@@ -4,30 +4,24 @@ from typing import List
 from app.core.database import get_db
 from app.models.person_group import PersonGroup, PersonGroupMember
 from app.schemas.group import GroupCreate, GroupUpdate, GroupResponse
-from app.core.security import get_current_user
-from app.models.user import User
 
 router = APIRouter(prefix="/groups", tags=["分组"])
 
 
 @router.get("", response_model=List[GroupResponse])
 async def get_groups(
-    current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
-    groups = db.query(PersonGroup).filter(
-        PersonGroup.user_id == current_user.id
-    ).order_by(PersonGroup.created_at.asc()).all()
+    groups = db.query(PersonGroup).order_by(PersonGroup.created_at.asc()).all()
     return groups
 
 
 @router.post("", response_model=GroupResponse, status_code=status.HTTP_201_CREATED)
 async def create_group(
     group: GroupCreate,
-    current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
-    db_group = PersonGroup(**group.dict(), user_id=current_user.id)
+    db_group = PersonGroup(**group.dict())
     db.add(db_group)
     db.commit()
     db.refresh(db_group)
@@ -38,12 +32,10 @@ async def create_group(
 async def update_group(
     group_id: int,
     group: GroupUpdate,
-    current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
     db_group = db.query(PersonGroup).filter(
-        PersonGroup.id == group_id,
-        PersonGroup.user_id == current_user.id
+        PersonGroup.id == group_id
     ).first()
     
     if not db_group:
@@ -63,12 +55,10 @@ async def update_group(
 @router.delete("/{group_id}", status_code=status.HTTP_204_NO_CONTENT)
 async def delete_group(
     group_id: int,
-    current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
     db_group = db.query(PersonGroup).filter(
-        PersonGroup.id == group_id,
-        PersonGroup.user_id == current_user.id
+        PersonGroup.id == group_id
     ).first()
     
     if not db_group:
@@ -88,15 +78,12 @@ async def delete_group(
 @router.get("/{group_id}/members")
 async def get_group_members(
     group_id: int,
-    current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
     from app.models.person import Person
     
-    # 先验证分组是否属于当前用户
     db_group = db.query(PersonGroup).filter(
-        PersonGroup.id == group_id,
-        PersonGroup.user_id == current_user.id
+        PersonGroup.id == group_id
     ).first()
     
     if not db_group:
@@ -130,7 +117,6 @@ async def get_group_members(
 async def add_person_to_group(
     group_id: int,
     person_id: int,
-    current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
     existing = db.query(PersonGroupMember).filter(
@@ -155,7 +141,6 @@ async def add_person_to_group(
 async def remove_person_from_group(
     group_id: int,
     person_id: int,
-    current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
     member = db.query(PersonGroupMember).filter(
@@ -178,15 +163,13 @@ async def remove_person_from_group(
 @router.get("/person/{person_id}", response_model=List[GroupResponse])
 async def get_person_groups(
     person_id: int,
-    current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
     groups = db.query(PersonGroup).join(
         PersonGroupMember,
         PersonGroup.id == PersonGroupMember.group_id
     ).filter(
-        PersonGroupMember.person_id == person_id,
-        PersonGroup.user_id == current_user.id
+        PersonGroupMember.person_id == person_id
     ).order_by(PersonGroup.created_at.asc()).all()
     
     return groups
