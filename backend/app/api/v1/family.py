@@ -3,10 +3,11 @@ from sqlalchemy.orm import Session
 from typing import List, Dict
 
 from app.core.database import get_db
-from app.models.family_member import FamilyMember
-from app.models.family_relation import FamilyRelation
-from app.models.family_calculated_relation import FamilyCalculatedRelation
-from app.models.person import Person
+from app.services.family_service import FamilyService
+from app.models.enums.relation_enums import (
+    FamilyRelationType, RelationNature,
+    SpouseRelationType, SpouseRelationNature
+)
 
 router = APIRouter(prefix="/family", tags=["家谱"])
 
@@ -15,136 +16,154 @@ router = APIRouter(prefix="/family", tags=["家谱"])
 def get_family_tree(
     db: Session = Depends(get_db)
 ):
-    family_members = db.query(FamilyMember).all()
-    
-    relations = db.query(FamilyRelation).all()
-    
-    nodes = []
-    edges = []
-    
-    for member in family_members:
-        person = db.query(Person).filter(Person.id == member.person_id).first()
-        if person:
-            nodes.append({
-                "id": member.id,
-                "person_id": person.id,
-                "name": person.nickname or f"{person.last_name}{person.first_name}",
-                "gender": person.gender,
-                "birth_date": person.birth_date.isoformat() if person.birth_date else None,
-                "death_date": person.death_date.isoformat() if person.death_date else None,
-                "is_me": person.is_me
-            })
-    
-    for relation in relations:
-        edges.append({
-            "id": relation.id,
-            "source": relation.parent_id,
-            "target": relation.child_id,
-            "parent_type": relation.parent_type,
-            "relation_nature": relation.relation_nature
-        })
-    
-    return {
-        "nodes": nodes,
-        "edges": edges
-    }
+    """获取家族树结构"""
+    service = FamilyService(db)
+    return service.get_family_tree()
 
 
-@router.get("/relations")
-def get_calculated_relations(
-    db: Session = Depends(get_db)
-):
-    relations = db.query(FamilyCalculatedRelation).all()
-    
-    return [
-        {
-            "person_id": relation.person_id,
-            "relation_name": relation.relation_name,
-            "relation_level": relation.relation_level,
-            "is_blood": relation.is_blood
-        }
-        for relation in relations
-    ]
-
-
-@router.get("/relations-to-me")
+@router.get("/relations/to-me")
 def get_relations_to_me(
     db: Session = Depends(get_db)
 ):
-    me_person = db.query(Person).filter(
-        Person.is_me == True
-    ).first()
-    
-    if not me_person:
-        return []
-    
-    me_member = db.query(FamilyMember).filter(
-        FamilyMember.person_id == me_person.id
-    ).first()
-    
-    if not me_member:
-        return []
-    
-    relations = db.query(FamilyCalculatedRelation).all()
-    
-    return [
-        {
-            "person_id": relation.person_id,
-            "relation_name": relation.relation_name,
-            "relation_level": relation.relation_level,
-            "is_blood": relation.is_blood
-        }
-        for relation in relations
-    ]
+    """获取所有与"我"的亲属关系"""
+    service = FamilyService(db)
+    return service.get_relations_to_me()
 
 
-@router.post("/recalculate")
-def recalculate_relations(
+@router.get("/relations/between")
+def get_relation_between(
+    person_a_id: int,
+    person_b_id: int,
     db: Session = Depends(get_db)
 ):
-    from app.services.family_service import FamilyService
-    
+    """计算两人之间的关系"""
     service = FamilyService(db)
-    service.recalculate_all_relations()
-    
-    return {"message": "关系重新计算成功"}
+    result = service.calculate_relation_between(person_a_id, person_b_id)
+    if result:
+        return result
+    return {"relation_name": "无关系", "level": -1, "is_blood": False}
 
 
-@router.post("/member")
-def add_family_member(
-    person_id: int,
+@router.post("/relation/family")
+def create_family_relation(
+    person_a_id: int,
+    person_b_id: int,
+    relation: int,
+    relation_nature: int = 0,
     db: Session = Depends(get_db)
 ):
-    from app.services.family_service import FamilyService
+    """
+    创建家庭关系（父母子女）
     
+    Args:
+        person_a_id: 人物A的ID
+        person_b_id: 人物B的ID
+        relation: 关系类型 (0:父, 1:母, 2:子, 3:女)
+        relation_nature: 关系性质 (0:亲, 1:继, 2:养, 3:义, 4:干)
+    """
     service = FamilyService(db)
-    member = service.add_family_member(person_id)
-    
-    return {"id": member.id, "person_id": member.person_id}
-
-
-@router.post("/relation")
-def add_family_relation(
-    parent_person_id: int,
-    child_person_id: int,
-    parent_type: str,
-    relation_nature: str = "qin",
-    db: Session = Depends(get_db)
-):
-    from app.services.family_service import FamilyService
-    
-    service = FamilyService(db)
-    
-    parent_member = service.add_family_member(parent_person_id)
-    child_member = service.add_family_member(child_person_id)
-    
-    relation = service.add_family_relation(
-        parent_member.id,
-        child_member.id,
-        parent_type,
-        relation_nature
+    forward, reverse = service.create_family_relation(
+        person_a_id, person_b_id, relation, relation_nature
     )
+    return {
+        "message": "关系创建成功",
+        "forward": forward.to_dict(),
+        "reverse": reverse.to_dict()
+    }
+
+
+@router.post("/relation/spouse")
+def create_spouse_relation(
+    person_a_id: int,
+    person_b_id: int,
+    relation: int,
+    relation_nature: int = 0,
+    db: Session = Depends(get_db)
+):
+    """
+    创建配偶关系
     
-    service.recalculate_all_relations()
-    
-    return {"id": relation.id, "message": "关系添加成功"}
+    Args:
+        person_a_id: 人物A的ID
+        person_b_id: 人物B的ID
+        relation: 关系类型 (0:丈夫, 1:妻子, 2:姨太太, 3:男朋友, 4:女朋友)
+        relation_nature: 关系性质 (0:现任, 1:前任)
+    """
+    service = FamilyService(db)
+    forward, reverse = service.create_spouse_relation(
+        person_a_id, person_b_id, relation, relation_nature
+    )
+    return {
+        "message": "关系创建成功",
+        "forward": forward.to_dict(),
+        "reverse": reverse.to_dict()
+    }
+
+
+@router.delete("/relation/family")
+def delete_family_relation(
+    person_a_id: int,
+    person_b_id: int,
+    db: Session = Depends(get_db)
+):
+    """删除家庭关系"""
+    service = FamilyService(db)
+    service.delete_family_relation(person_a_id, person_b_id)
+    return {"message": "关系删除成功"}
+
+
+@router.delete("/relation/spouse")
+def delete_spouse_relation(
+    person_a_id: int,
+    person_b_id: int,
+    db: Session = Depends(get_db)
+):
+    """删除配偶关系"""
+    service = FamilyService(db)
+    service.delete_spouse_relation(person_a_id, person_b_id)
+    return {"message": "关系删除成功"}
+
+
+@router.get("/enums")
+def get_relation_enums(
+    db: Session = Depends(get_db)
+):
+    """获取关系枚举值"""
+    return {
+        "family_relation_types": [
+            {"value": r.value, "name": r.name, "label": get_family_relation_label(r.value)}
+            for r in FamilyRelationType
+        ],
+        "relation_natures": [
+            {"value": r.value, "name": r.name, "label": get_relation_nature_label(r.value)}
+            for r in RelationNature
+        ],
+        "spouse_relation_types": [
+            {"value": r.value, "name": r.name, "label": get_spouse_relation_label(r.value)}
+            for r in SpouseRelationType
+        ],
+        "spouse_relation_natures": [
+            {"value": r.value, "name": r.name, "label": get_spouse_relation_nature_label(r.value)}
+            for r in SpouseRelationNature
+        ]
+    }
+
+
+def get_family_relation_label(value: int) -> str:
+    labels = {0: "父", 1: "母", 2: "子", 3: "女"}
+    return labels.get(value, "未知")
+
+
+def get_relation_nature_label(value: int) -> str:
+    labels = {0: "亲（血亲）", 1: "继（继亲）", 2: "养（收养）", 3: "义（结义）", 4: "干（干亲）"}
+    return labels.get(value, "未知")
+
+
+def get_spouse_relation_label(value: int) -> str:
+    labels = {0: "丈夫", 1: "妻子", 2: "姨太太/妾", 3: "男朋友", 4: "女朋友"}
+    return labels.get(value, "未知")
+
+
+def get_spouse_relation_nature_label(value: int) -> str:
+    labels = {0: "现任", 1: "前任"}
+    return labels.get(value, "未知")

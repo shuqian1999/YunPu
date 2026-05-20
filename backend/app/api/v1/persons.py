@@ -7,6 +7,7 @@ import uuid
 from app.core.database import get_db
 from app.models.person import Person
 from app.schemas.person import PersonCreate, PersonUpdate, PersonResponse
+from app.services.family_service import FamilyService
 
 router = APIRouter(prefix="/persons", tags=["人物"])
 
@@ -96,57 +97,46 @@ def get_person_relations(
     person_id: int,
     db: Session = Depends(get_db)
 ):
-    from app.models.family_member import FamilyMember
+    """获取人物的所有关系"""
+    service = FamilyService(db)
+    
+    relations = []
+    
+    # 获取作为 person_a 的关系
     from app.models.family_relation import FamilyRelation
-    from app.models.person import Person
+    from app.models.spouse_relation import SpouseRelation
     
-    family_member = db.query(FamilyMember).filter(
-        FamilyMember.person_id == person_id
-    ).first()
-    
-    if not family_member:
-        return {"parents": [], "children": []}
-    
-    parent_relations = db.query(FamilyRelation).filter(
-        FamilyRelation.child_id == family_member.id
+    family_as_a = db.query(FamilyRelation).filter(
+        FamilyRelation.person_a_id == person_id
     ).all()
     
-    children_relations = db.query(FamilyRelation).filter(
-        FamilyRelation.parent_id == family_member.id
+    for rel in family_as_a:
+        person_b = db.query(Person).filter(Person.id == rel.person_b_id).first()
+        if person_b:
+            relations.append({
+                "person_id": person_b.id,
+                "name": person_b.nickname or f"{person_b.last_name or ''}{person_b.first_name or ''}",
+                "relation_name": service._get_relation_name(rel.relation, rel.relation_nature, "from_a"),
+                "relation_type": rel.relation,
+                "relation_nature": rel.relation_nature
+            })
+    
+    spouse_as_a = db.query(SpouseRelation).filter(
+        SpouseRelation.person_a_id == person_id
     ).all()
     
-    parents = []
-    for pr in parent_relations:
-        parent_member = db.query(FamilyMember).filter(FamilyMember.id == pr.parent_id).first()
-        if parent_member:
-            parent_person = db.query(Person).filter(Person.id == parent_member.person_id).first()
-            if parent_person:
-                parents.append({
-                    "id": parent_member.id,
-                    "person_id": parent_member.person_id,
-                    "name": parent_person.nickname or f"{parent_person.last_name}{parent_person.first_name}",
-                    "parent_type": pr.parent_type,
-                    "relation_nature": pr.relation_nature
-                })
+    for rel in spouse_as_a:
+        person_b = db.query(Person).filter(Person.id == rel.person_b_id).first()
+        if person_b:
+            relations.append({
+                "person_id": person_b.id,
+                "name": person_b.nickname or f"{person_b.last_name or ''}{person_b.first_name or ''}",
+                "relation_name": service._get_spouse_relation_name(rel.relation, "from_a"),
+                "relation_type": f"spouse_{rel.relation}",
+                "relation_nature": rel.relation_nature
+            })
     
-    children = []
-    for cr in children_relations:
-        child_member = db.query(FamilyMember).filter(FamilyMember.id == cr.child_id).first()
-        if child_member:
-            child_person = db.query(Person).filter(Person.id == child_member.person_id).first()
-            if child_person:
-                children.append({
-                    "id": child_member.id,
-                    "person_id": child_member.person_id,
-                    "name": child_person.nickname or f"{child_person.last_name}{child_person.first_name}",
-                    "parent_type": cr.parent_type,
-                    "relation_nature": cr.relation_nature
-                })
-    
-    return {
-        "parents": parents,
-        "children": children
-    }
+    return relations
 
 
 @router.get("/{person_id}/detail")
@@ -154,14 +144,10 @@ def get_person_detail(
     person_id: int,
     db: Session = Depends(get_db)
 ):
-    from app.models.family_member import FamilyMember
-    from app.models.family_relation import FamilyRelation
-    from app.models.person import Person
-    from sqlalchemy import or_
+    """获取人物详情（包含关系）"""
+    service = FamilyService(db)
     
-    person = db.query(Person).filter(
-        Person.id == person_id
-    ).first()
+    person = db.query(Person).filter(Person.id == person_id).first()
     
     if not person:
         raise HTTPException(
@@ -169,72 +155,11 @@ def get_person_detail(
             detail="人物不存在"
         )
     
-    family_member = db.query(FamilyMember).filter(
-        FamilyMember.person_id == person_id
-    ).first()
-    
-    family = {
-        "parents": [],
-        "spouses": [],
-        "children": []
-    }
-
-    if family_member:
-        parent_relations = db.query(FamilyRelation).filter(
-            FamilyRelation.child_id == family_member.id
-        ).all()
-        
-        for relation in parent_relations:
-            parent_member = db.query(FamilyMember).filter(FamilyMember.id == relation.parent_id).first()
-            if parent_member:
-                parent_person = db.query(Person).filter(Person.id == parent_member.person_id).first()
-                if parent_person:
-                    family["parents"].append({
-                        "id": parent_member.id,
-                        "person_id": parent_member.person_id,
-                        "name": parent_person.nickname or f"{parent_person.last_name}{parent_person.first_name}",
-                        "parent_type": relation.parent_type,
-                        "relation_nature": relation.relation_nature
-                    })
-        
-        spouse_relations = db.query(FamilyRelation).filter(
-            (
-                (FamilyRelation.parent_id == family_member.id) | 
-                (FamilyRelation.child_id == family_member.id)
-            ),
-            FamilyRelation.parent_type == "spouse"
-        ).all()
-        
-        for relation in spouse_relations:
-            spouse_member_id = relation.child_id if relation.parent_id == family_member.id else relation.parent_id
-            spouse_member = db.query(FamilyMember).filter(FamilyMember.id == spouse_member_id).first()
-            if spouse_member:
-                spouse_person = db.query(Person).filter(Person.id == spouse_member.person_id).first()
-                if spouse_person:
-                    family["spouses"].append({
-                        "id": spouse_member.id,
-                        "person_id": spouse_member.person_id,
-                        "name": spouse_person.nickname or f"{spouse_person.last_name}{spouse_person.first_name}",
-                        "relation_nature": relation.relation_nature
-                    })
-        
-        children_relations = db.query(FamilyRelation).filter(
-            FamilyRelation.parent_id == family_member.id,
-            FamilyRelation.parent_type != "spouse"
-        ).all()
-        
-        for relation in children_relations:
-            child_member = db.query(FamilyMember).filter(FamilyMember.id == relation.child_id).first()
-            if child_member:
-                child_person = db.query(Person).filter(Person.id == child_member.person_id).first()
-                if child_person:
-                    family["children"].append({
-                        "id": child_member.id,
-                        "person_id": child_member.person_id,
-                        "name": child_person.nickname or f"{child_person.last_name}{child_person.first_name}",
-                        "parent_type": relation.parent_type,
-                        "relation_nature": relation.relation_nature
-                    })
+    # 获取与"我"的关系
+    me = db.query(Person).filter(Person.is_me == True).first()
+    relation_to_me = None
+    if me and me.id != person_id:
+        relation_to_me = service.calculate_relation_between(person_id, me.id)
     
     return {
         "id": person.id,
@@ -250,95 +175,8 @@ def get_person_detail(
         "custom_fields": person.custom_fields,
         "is_me": person.is_me,
         "avatar_url": person.avatar_url,
-        "family": family
+        "relation_to_me": relation_to_me
     }
-
-
-@router.put("/{person_id}/family")
-def update_person_family(
-    person_id: int,
-    family_data: dict,
-    db: Session = Depends(get_db)
-):
-    from app.models.family_member import FamilyMember
-    from app.models.family_relation import FamilyRelation
-    from sqlalchemy import or_
-    
-    family_member = db.query(FamilyMember).filter(
-        FamilyMember.person_id == person_id
-    ).first()
-    
-    if not family_member:
-        family_member = FamilyMember(person_id=person_id)
-        db.add(family_member)
-        db.flush()
-    
-    db.query(FamilyRelation).filter(
-        or_(
-            FamilyRelation.parent_id == family_member.id,
-            FamilyRelation.child_id == family_member.id
-        )
-    ).delete()
-    
-    if family_data.get("parents"):
-        for parent in family_data["parents"]:
-            parent_member = db.query(FamilyMember).filter(
-                FamilyMember.person_id == parent["id"]
-            ).first()
-            if not parent_member:
-                parent_member = FamilyMember(person_id=parent["id"])
-                db.add(parent_member)
-                db.flush()
-            if parent_member:
-                relation = FamilyRelation(
-                    parent_id=parent_member.id,
-                    child_id=family_member.id,
-                    parent_type=parent.get("parent_type", "father"),
-                    relation_nature=parent.get("relation_nature", "qin")
-                )
-                db.add(relation)
-    
-    if family_data.get("spouses"):
-        for spouse in family_data["spouses"]:
-            spouse_member = db.query(FamilyMember).filter(
-                FamilyMember.person_id == spouse["id"]
-            ).first()
-            if not spouse_member:
-                spouse_member = FamilyMember(person_id=spouse["id"])
-                db.add(spouse_member)
-                db.flush()
-            if spouse_member:
-                relation = FamilyRelation(
-                    parent_id=family_member.id,
-                    child_id=spouse_member.id,
-                    parent_type="spouse",
-                    relation_nature=spouse.get("relation_nature", "qin")
-                )
-                db.add(relation)
-    
-    if family_data.get("children"):
-        for child in family_data["children"]:
-            child_member = db.query(FamilyMember).filter(
-                FamilyMember.person_id == child["id"]
-            ).first()
-            if not child_member:
-                child_member = FamilyMember(person_id=child["id"])
-                db.add(child_member)
-                db.flush()
-            if child_member:
-                relation = FamilyRelation(
-                    parent_id=family_member.id,
-                    child_id=child_member.id,
-                    parent_type=child.get("parent_type", "father"),
-                    relation_nature=child.get("relation_nature", "qin")
-                )
-                db.add(relation)
-    
-    db.commit()
-    
-    invalidate_relation_cache(db)
-    
-    return {"message": "关系更新成功"}
 
 
 @router.get("/{person_id}", response_model=PersonResponse)
@@ -346,9 +184,7 @@ def get_person(
     person_id: int,
     db: Session = Depends(get_db)
 ):
-    person = db.query(Person).filter(
-        Person.id == person_id
-    ).first()
+    person = db.query(Person).filter(Person.id == person_id).first()
     
     if not person:
         raise HTTPException(
@@ -365,9 +201,7 @@ def update_person(
     person: PersonUpdate,
     db: Session = Depends(get_db)
 ):
-    db_person = db.query(Person).filter(
-        Person.id == person_id
-    ).first()
+    db_person = db.query(Person).filter(Person.id == person_id).first()
     
     if not db_person:
         raise HTTPException(
@@ -388,15 +222,11 @@ def delete_person(
     person_id: int,
     db: Session = Depends(get_db)
 ):
-    from app.models.family_member import FamilyMember
-    from app.models.family_relation import FamilyRelation
-    from app.models.family_calculated_relation import FamilyCalculatedRelation
     from app.models.person_group import PersonGroupMember
-    from sqlalchemy import or_
+    from app.models.family_relation import FamilyRelation
+    from app.models.spouse_relation import SpouseRelation
     
-    db_person = db.query(Person).filter(
-        Person.id == person_id
-    ).first()
+    db_person = db.query(Person).filter(Person.id == person_id).first()
     
     if not db_person:
         raise HTTPException(
@@ -404,34 +234,22 @@ def delete_person(
             detail="人物不存在"
         )
     
+    # 删除人物在分组中的关联记录
     db.query(PersonGroupMember).filter(
         PersonGroupMember.person_id == person_id
     ).delete()
     
-    family_member = db.query(FamilyMember).filter(
-        FamilyMember.person_id == person_id
-    ).first()
+    # 删除相关的家庭关系
+    db.query(FamilyRelation).filter(
+        (FamilyRelation.person_a_id == person_id) | (FamilyRelation.person_b_id == person_id)
+    ).delete(synchronize_session=False)
     
-    if family_member:
-        db.query(FamilyRelation).filter(
-            or_(
-                FamilyRelation.parent_id == family_member.id,
-                FamilyRelation.child_id == family_member.id
-            )
-        ).delete()
-        
-        db.query(FamilyCalculatedRelation).delete()
-        
-        db.delete(family_member)
+    # 删除相关的配偶关系
+    db.query(SpouseRelation).filter(
+        (SpouseRelation.person_a_id == person_id) | (SpouseRelation.person_b_id == person_id)
+    ).delete(synchronize_session=False)
     
     db.delete(db_person)
-    db.commit()
-
-
-def invalidate_relation_cache(db: Session):
-    from app.models.family_calculated_relation import FamilyCalculatedRelation
-    
-    db.query(FamilyCalculatedRelation).delete()
     db.commit()
 
 
@@ -443,9 +261,7 @@ async def upload_person_avatar(
 ):
     from app.core.config import settings
     
-    person = db.query(Person).filter(
-        Person.id == person_id
-    ).first()
+    person = db.query(Person).filter(Person.id == person_id).first()
     
     if not person:
         raise HTTPException(
@@ -499,9 +315,7 @@ def delete_person_avatar(
     person_id: int,
     db: Session = Depends(get_db)
 ):
-    person = db.query(Person).filter(
-        Person.id == person_id
-    ).first()
+    person = db.query(Person).filter(Person.id == person_id).first()
     
     if not person:
         raise HTTPException(

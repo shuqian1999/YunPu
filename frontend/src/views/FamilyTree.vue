@@ -18,14 +18,6 @@
             <el-icon><Refresh /></el-icon>
             刷新
           </el-button>
-          <el-button @click="handleRecalculateRelations" type="warning" size="small">
-            <el-icon><Edit /></el-icon>
-            重新计算关系
-          </el-button>
-          <el-button @click="addAllPersons" type="info" size="small">
-            <el-icon><Document /></el-icon>
-            导入所有人物
-          </el-button>
           <el-button @click="addRelation" type="success" size="small">
             <el-icon><Plus /></el-icon>
             添加关系
@@ -40,41 +32,93 @@
     <!-- 关系图谱视图 -->
     <RelationGraph v-show="viewMode === 'graph'" />
 
-    <el-dialog title="添加家庭关系" v-model="showAddRelation">
+    <!-- 添加关系对话框 -->
+    <el-dialog title="添加关系" v-model="showAddRelation">
       <el-form :model="relationForm" label-width="80px">
-        <el-form-item label="父/母亲">
-          <el-select v-model="relationForm.parent_person_id" placeholder="选择父/母亲">
-            <el-option 
-              v-for="p in availablePersons" 
-              :key="p.id" 
-              :label="p.name" 
-              :value="p.id"
-            />
-          </el-select>
-        </el-form-item>
         <el-form-item label="关系类型">
-          <el-select v-model="relationForm.parent_type">
-            <el-option label="父亲" value="father" />
-            <el-option label="母亲" value="mother" />
-          </el-select>
+          <el-radio-group v-model="relationForm.relationType">
+            <el-radio label="family">家庭关系</el-radio>
+            <el-radio label="spouse">配偶关系</el-radio>
+          </el-radio-group>
         </el-form-item>
-        <el-form-item label="子/女儿">
-          <el-select v-model="relationForm.child_person_id" placeholder="选择子/女儿">
-            <el-option 
-              v-for="p in availablePersons" 
-              :key="p.id" 
-              :label="p.name" 
-              :value="p.id"
-            />
-          </el-select>
-        </el-form-item>
-        <el-form-item label="关系性质">
-          <el-select v-model="relationForm.relation_nature">
-            <el-option label="亲生" value="qin" />
-            <el-option label="继亲" value="ji" />
-            <el-option label="义亲" value="yi" />
-          </el-select>
-        </el-form-item>
+
+        <template v-if="relationForm.relationType === 'family'">
+          <el-form-item label="人物A">
+            <el-select v-model="relationForm.person_a_id" placeholder="选择人物">
+              <el-option 
+                v-for="p in availablePersons" 
+                :key="p.id" 
+                :label="p.name" 
+                :value="p.id"
+              />
+            </el-select>
+          </el-form-item>
+          <el-form-item label="关系">
+            <el-select v-model="relationForm.relation">
+              <el-option label="是...的父亲" :value="0" />
+              <el-option label="是...的母亲" :value="1" />
+              <el-option label="是...的儿子" :value="2" />
+              <el-option label="是...的女儿" :value="3" />
+            </el-select>
+          </el-form-item>
+          <el-form-item label="人物B">
+            <el-select v-model="relationForm.person_b_id" placeholder="选择人物">
+              <el-option 
+                v-for="p in availablePersons" 
+                :key="p.id" 
+                :label="p.name" 
+                :value="p.id"
+              />
+            </el-select>
+          </el-form-item>
+          <el-form-item label="关系性质">
+            <el-select v-model="relationForm.relation_nature">
+              <el-option label="亲（血亲）" :value="0" />
+              <el-option label="继（继亲）" :value="1" />
+              <el-option label="养（收养）" :value="2" />
+              <el-option label="义（结义）" :value="3" />
+              <el-option label="干（干亲）" :value="4" />
+            </el-select>
+          </el-form-item>
+        </template>
+
+        <template v-else>
+          <el-form-item label="人物A">
+            <el-select v-model="relationForm.person_a_id" placeholder="选择人物">
+              <el-option 
+                v-for="p in availablePersons" 
+                :key="p.id" 
+                :label="p.name" 
+                :value="p.id"
+              />
+            </el-select>
+          </el-form-item>
+          <el-form-item label="关系">
+            <el-select v-model="relationForm.relation">
+              <el-option label="是...的丈夫" :value="0" />
+              <el-option label="是...的妻子" :value="1" />
+              <el-option label="是...的姨太太" :value="2" />
+              <el-option label="是...的男朋友" :value="3" />
+              <el-option label="是...的女朋友" :value="4" />
+            </el-select>
+          </el-form-item>
+          <el-form-item label="人物B">
+            <el-select v-model="relationForm.person_b_id" placeholder="选择人物">
+              <el-option 
+                v-for="p in availablePersons" 
+                :key="p.id" 
+                :label="p.name" 
+                :value="p.id"
+              />
+            </el-select>
+          </el-form-item>
+          <el-form-item label="关系性质">
+            <el-select v-model="relationForm.relation_nature">
+              <el-option label="现任" :value="0" />
+              <el-option label="前任" :value="1" />
+            </el-select>
+          </el-form-item>
+        </template>
       </el-form>
       <template #footer>
         <el-button @click="showAddRelation = false">取消</el-button>
@@ -84,7 +128,7 @@
 
     <div v-if="selectedPerson" class="person-detail-panel">
       <div class="panel-header">
-        <h3>{{ selectedPerson.last_name }}</h3>
+        <h3>{{ selectedPerson.name || selectedPerson.last_name }}</h3>
         <el-button @click="selectedPerson = null" size="small">
           <el-icon><Close /></el-icon>
         </el-button>
@@ -102,6 +146,10 @@
           <span class="label">逝世</span>
           <span class="value">{{ selectedPerson.death_date ? formatDate(selectedPerson.death_date) : '-' }}</span>
         </div>
+        <div v-if="selectedPerson.relation_to_me" class="detail-row">
+          <span class="label">与我的关系</span>
+          <span class="value">{{ selectedPerson.relation_to_me.relation_name }}</span>
+        </div>
         <div class="detail-actions">
           <el-button @click="editPerson(selectedPerson.id)" type="primary" size="small">
             编辑详情
@@ -116,8 +164,8 @@
 import { ref, onMounted, onUnmounted } from 'vue'
 import { useRouter } from 'vue-router'
 import * as d3 from 'd3'
-import { Refresh, Plus, Close, Edit, Document } from '@element-plus/icons-vue'
-import { getFamilyTree, addFamilyRelation, getRelationsToMe, recalculateRelations, addFamilyMember } from '@/api/family'
+import { Refresh, Plus, Close } from '@element-plus/icons-vue'
+import { getFamilyTree, createFamilyRelation, createSpouseRelation, getRelationsToMe, getRelationBetween } from '@/api/family'
 import { getPersons } from '@/api/persons'
 import { ElMessage } from 'element-plus'
 import RelationGraph from '@/components/RelationGraph.vue'
@@ -134,10 +182,11 @@ let svg = null
 let gRoot = null
 
 const relationForm = ref({
-  parent_person_id: null,
-  parent_type: 'father',
-  child_person_id: null,
-  relation_nature: 'qin'
+  relationType: 'family',
+  person_a_id: null,
+  person_b_id: null,
+  relation: 0,
+  relation_nature: 0
 })
 
 const CARD_WIDTH = 180
@@ -162,36 +211,6 @@ const refreshTree = async () => {
   await loadTree()
 }
 
-const handleRecalculateRelations = async () => {
-  try {
-    await recalculateRelations()
-    ElMessage.success('关系重新计算成功')
-    await loadTree()
-  } catch (error) {
-    console.error('重新计算关系失败:', error)
-    ElMessage.error('重新计算关系失败')
-  }
-}
-
-const addAllPersons = async () => {
-  try {
-    const personsRes = await getPersons()
-    const treeRes = await getFamilyTree()
-    const existingMemberIds = new Set(treeRes.nodes.map(n => n.person_id))
-    for (const person of personsRes) {
-      if (!existingMemberIds.has(person.id)) {
-        await addFamilyMember(person.id)
-      }
-    }
-    await handleRecalculateRelations()
-    ElMessage.success('导入人物并重新计算关系成功')
-    await loadTree()
-  } catch (error) {
-    console.error('导入人物失败:', error)
-    ElMessage.error('导入人物失败')
-  }
-}
-
 const goBack = () => {
   router.back()
 }
@@ -199,72 +218,67 @@ const goBack = () => {
 const buildHierarchy = (nodes, edges) => {
   if (!nodes || nodes.length === 0) return null
 
-  const nodeIdToPersonId = {}
   const personMap = {}
   nodes.forEach(node => {
-    if (!node || !node.person_id || !node.id) return
-    const nodeId = String(node.id)
-    const pid = String(node.person_id)
-    nodeIdToPersonId[nodeId] = pid
-    personMap[pid] = {
-      id: node.person_id,
+    if (!node || !node.id) return
+    personMap[String(node.id)] = {
+      id: node.id,
       first_name: '',
       last_name: node.name || '未知',
       birth_date: node.birth_date || null,
       death_date: node.death_date || null,
-      gender: GENDER_MAP[node.gender] || 'male'
+      gender: GENDER_MAP[node.gender] || 'male',
+      is_me: node.is_me || false,
+      name: node.name || '未知'
     }
   })
-
-  console.log('nodeIdToPersonId:', nodeIdToPersonId)
-  console.log('personMap:', personMap)
 
   const childrenByParent = {}
 
   if (edges && Array.isArray(edges)) {
     edges.forEach(edge => {
       if (!edge || !edge.source || !edge.target) return
-      const sourceNodeId = String(edge.source)
-      const targetNodeId = String(edge.target)
-      const sourcePersonId = nodeIdToPersonId[sourceNodeId]
-      const targetPersonId = nodeIdToPersonId[targetNodeId]
-      if (!sourcePersonId || !targetPersonId) return
-
-      if (edge.parent_type === 'spouse') return
-
-      if (!childrenByParent[sourcePersonId]) childrenByParent[sourcePersonId] = []
-      if (!childrenByParent[sourcePersonId].includes(targetPersonId)) {
-        childrenByParent[sourcePersonId].push(targetPersonId)
+      
+      // 跳过配偶关系边
+      if (edge.is_spouse) return
+      
+      const sourceId = String(edge.source)
+      const targetId = String(edge.target)
+      
+      // 关系类型：0=父, 1=母, 2=子, 3=女
+      // 父子关系：source是父辈，target是子辈
+      // 0=父, 1=母 表示 source 是 target 的父亲/母亲
+      if (!childrenByParent[sourceId]) childrenByParent[sourceId] = []
+      if (!childrenByParent[sourceId].includes(targetId)) {
+        childrenByParent[sourceId].push(targetId)
       }
     })
   }
 
-  console.log('childrenByParent:', childrenByParent)
-
   const childSet = {}
-  Object.keys(childrenByParent).forEach(parentPid => {
-    childrenByParent[parentPid].forEach(childPid => {
-      childSet[childPid] = true
+  Object.keys(childrenByParent).forEach(parentId => {
+    childrenByParent[parentId].forEach(childId => {
+      childSet[childId] = true
     })
   })
 
-  const rootPids = Object.keys(personMap).filter(pid => !childSet[pid])
-  console.log('rootPids:', rootPids)
-  if (rootPids.length === 0) rootPids.push(Object.keys(personMap)[0])
+  // 找到根节点（没有父节点的人）
+  let rootIds = Object.keys(personMap).filter(id => !childSet[id])
+  if (rootIds.length === 0) rootIds = [Object.keys(personMap)[0]]
 
   const processed = {}
-  const convertNode = (pid) => {
-    if (processed[pid]) return null
-    processed[pid] = true
-    const person = personMap[pid]
+  const convertNode = (id) => {
+    if (processed[id]) return null
+    processed[id] = true
+    const person = personMap[id]
     if (!person) return null
-    const children = (childrenByParent[pid] || [])
+    const children = (childrenByParent[id] || [])
       .map(convertNode)
       .filter(Boolean)
     return { data: person, children: children.length > 0 ? children : undefined }
   }
 
-  return convertNode(rootPids[0])
+  return convertNode(rootIds[0])
 }
 
 const initSvg = () => {
@@ -303,7 +317,6 @@ const renderTree = (rootNode) => {
   treeLayout(root)
 
   const descendants = root.descendants()
-  console.log('Tree descendants:', descendants)
 
   const container = treeContainer.value
   if (!container) return
@@ -341,6 +354,7 @@ const renderTree = (rootNode) => {
 
   const isFemale = d => d.data.gender === 'female'
 
+  // 绘制卡片背景
   nodes.append('rect')
     .attr('width', CARD_WIDTH)
     .attr('height', CARD_HEIGHT)
@@ -350,6 +364,7 @@ const renderTree = (rootNode) => {
     .attr('stroke', d => isFemale(d) ? '#FFB6C1' : '#87CEEB')
     .attr('stroke-width', 2)
 
+  // 绘制头像圆圈
   nodes.append('circle')
     .attr('cx', CARD_WIDTH / 2)
     .attr('cy', 28)
@@ -358,6 +373,7 @@ const renderTree = (rootNode) => {
     .attr('stroke', d => isFemale(d) ? '#FF6B6B' : '#409EFF')
     .attr('stroke-width', 2)
 
+  // 绘制姓氏首字
   nodes.append('text')
     .attr('x', CARD_WIDTH / 2)
     .attr('y', 33)
@@ -367,6 +383,7 @@ const renderTree = (rootNode) => {
     .attr('fill', d => isFemale(d) ? '#FF6B6B' : '#409EFF')
     .text(d => (d.data.last_name || '?').charAt(0))
 
+  // 绘制姓名
   nodes.append('text')
     .attr('x', CARD_WIDTH / 2)
     .attr('y', 55)
@@ -376,6 +393,7 @@ const renderTree = (rootNode) => {
     .attr('fill', '#333')
     .text(d => d.data.last_name || '')
 
+  // 标记已故人士
   nodes.filter(d => d.data.death_date)
     .append('g')
     .attr('transform', `translate(${CARD_WIDTH - 12}, 12)`)
@@ -389,9 +407,29 @@ const renderTree = (rootNode) => {
         .text('逝')
     })
 
-  nodes.on('click', (event, d) => {
+  // 标记"我"
+  nodes.filter(d => d.data.is_me)
+    .append('g')
+    .attr('transform', `translate(12, 12)`)
+    .each(function () {
+      d3.select(this).append('circle').attr('r', 10).attr('fill', '#67C23A')
+      d3.select(this).append('text')
+        .attr('y', 4)
+        .attr('text-anchor', 'middle')
+        .attr('font-size', 9)
+        .attr('fill', 'white')
+        .text('我')
+    })
+
+  // 点击事件
+  nodes.on('click', async (event, d) => {
     event.stopPropagation()
-    selectedPerson.value = d.data
+    // 获取与"我"的关系
+    const relationToMe = await getRelationBetween(d.data.id, 1).catch(() => null)
+    selectedPerson.value = {
+      ...d.data,
+      relation_to_me: relationToMe
+    }
   })
 
   svg.on('click', () => {
@@ -401,20 +439,15 @@ const renderTree = (rootNode) => {
 
 const loadTree = async () => {
   try {
-    const [treeRes, personsRes, relationsRes] = await Promise.all([
+    const [treeRes, personsRes] = await Promise.all([
       getFamilyTree(),
-      getPersons(),
-      getRelationsToMe()
+      getPersons()
     ])
-
-    console.log('Nodes:', treeRes.nodes)
-    console.log('Edges:', treeRes.edges)
 
     availablePersons.value = personsRes.map(p => ({
       id: p.id,
-      name: p.nickname || (p.last_name + p.first_name)
+      name: p.nickname || (p.last_name + (p.first_name || ''))
     }))
-    relationsToMe.value = relationsRes
 
     const rootNode = buildHierarchy(treeRes.nodes, treeRes.edges)
     if (!rootNode) {
@@ -437,24 +470,47 @@ const addRelation = () => {
 }
 
 const submitRelation = async () => {
-  if (!relationForm.value.parent_person_id || !relationForm.value.child_person_id) return
+  if (!relationForm.value.person_a_id || !relationForm.value.person_b_id) {
+    ElMessage.warning('请选择两个人物')
+    return
+  }
+  
+  if (relationForm.value.person_a_id === relationForm.value.person_b_id) {
+    ElMessage.warning('不能与自己建立关系')
+    return
+  }
+
   try {
-    await addFamilyRelation(
-      relationForm.value.parent_person_id,
-      relationForm.value.child_person_id,
-      relationForm.value.parent_type,
-      relationForm.value.relation_nature
-    )
+    if (relationForm.value.relationType === 'family') {
+      await createFamilyRelation(
+        relationForm.value.person_a_id,
+        relationForm.value.person_b_id,
+        relationForm.value.relation,
+        relationForm.value.relation_nature
+      )
+    } else {
+      await createSpouseRelation(
+        relationForm.value.person_a_id,
+        relationForm.value.person_b_id,
+        relationForm.value.relation,
+        relationForm.value.relation_nature
+      )
+    }
     showAddRelation.value = false
+    ElMessage.success('关系添加成功')
     await loadTree()
+    
+    // 重置表单
     relationForm.value = {
-      parent_person_id: null,
-      parent_type: 'father',
-      child_person_id: null,
-      relation_nature: 'qin'
+      relationType: 'family',
+      person_a_id: null,
+      person_b_id: null,
+      relation: 0,
+      relation_nature: 0
     }
   } catch (error) {
     console.error('添加关系失败:', error)
+    ElMessage.error('添加关系失败')
   }
 }
 
