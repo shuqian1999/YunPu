@@ -362,7 +362,7 @@ onMounted(() => {
 .page-title {
   font-size: 24px;
   font-weight: 500;
-  color: #303133;
+  color: var(--text-primary, #303133);
 }
 
 .groups-list {
@@ -372,8 +372,17 @@ onMounted(() => {
 }
 
 .group-card {
+  background: var(--card-bg, #ffffff);
+  border: 1px solid var(--border-color, #dcdfe6);
+
+  :deep(.el-card) {
+    background: var(--card-bg, #ffffff);
+    border-color: var(--border-color, #dcdfe6);
+  }
+
   :deep(.el-card__body) {
     padding: 20px;
+    background: var(--card-bg, #ffffff);
   }
 }
 
@@ -383,7 +392,7 @@ onMounted(() => {
   align-items: center;
   margin-bottom: 16px;
   padding-bottom: 16px;
-  border-bottom: 1px solid #EBEEF5;
+  border-bottom: 1px solid var(--border-lighter, #EBEEF5);
 }
 
 .group-info {
@@ -398,7 +407,7 @@ onMounted(() => {
 }
 
 .group-description {
-  color: #909399;
+  color: var(--text-secondary, #909399);
   font-size: 14px;
 }
 
@@ -414,19 +423,19 @@ onMounted(() => {
     align-items: center;
     margin-bottom: 12px;
   }
-  
+
   .members-title {
     font-size: 14px;
     font-weight: 500;
-    color: #606266;
+    color: var(--text-regular, #606266);
   }
-  
+
   .members-list {
     display: flex;
     flex-wrap: wrap;
     gap: 8px;
   }
-  
+
   .member-tag {
     margin-right: 0;
   }
@@ -434,6 +443,15 @@ onMounted(() => {
 
 .member-search {
   margin-bottom: 16px;
+
+  :deep(.el-input__wrapper) {
+    background: var(--card-bg, #ffffff);
+    box-shadow: 0 0 0 1px var(--border-color, #dcdfe6);
+  }
+
+  :deep(.el-input__inner) {
+    color: var(--text-primary, #303133);
+  }
 }
 
 .persons-list {
@@ -448,11 +466,11 @@ onMounted(() => {
   margin-bottom: 8px;
   padding: 8px;
   border-radius: 4px;
-  
+
   &:hover {
-    background-color: var(--bg-color, #F5F7FA);
+    background-color: var(--bg-color-light, #F5F7FA);
   }
-  
+
   :deep(.el-checkbox__label) {
     flex: 1;
   }
@@ -466,11 +484,11 @@ onMounted(() => {
 
 .person-name {
   font-size: 14px;
-  color: #303133;
+  color: var(--text-primary, #303133);
 }
 
 .person-nickname {
   font-size: 12px;
-  color: #909399;
+  color: var(--text-secondary, #909399);
 }
 </style>
