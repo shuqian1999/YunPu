@@ -86,22 +86,47 @@ html.dark body {
 
 /* Element Plus 深色模式覆盖 */
 .dark {
+  /* 基础颜色 */
+  --el-bg-color: var(--bg-color);
+  --el-bg-color-page: var(--bg-color);
+  --el-bg-color-overlay: var(--bg-color-light);
+  --el-text-color-primary: var(--text-primary);
+  --el-text-color-regular: var(--text-regular);
+  --el-text-color-secondary: var(--text-secondary);
+  --el-text-color-placeholder: var(--text-placeholder);
+  --el-border-color: var(--border-color);
+  --el-border-color-light: var(--border-light);
+  --el-border-color-lighter: var(--border-lighter);
+  --el-fill-color: var(--card-bg);
+  --el-fill-color-light: var(--bg-color-light);
+
   /* 输入框 */
   --el-input-bg-color: var(--card-bg);
   --el-input-border-color: var(--border-color);
   --el-input-text-color: var(--text-primary);
+  --el-input-placeholder-color: var(--text-placeholder);
 
   /* 卡片 */
   --el-card-bg-color: var(--card-bg);
+  --el-card-border-color: var(--border-color);
+  --el-card-text-color: var(--text-primary);
+  --el-card-header-bg-color: var(--card-bg);
+  --el-card-header-text-color: var(--text-primary);
 
   /* 菜单 */
   --el-menu-bg-color: var(--card-bg);
   --el-menu-text-color: var(--text-regular);
   --el-menu-hover-bg-color: var(--bg-color-light);
+  --el-menu-active-bg-color: rgba(64, 158, 255, 0.15);
+  --el-menu-active-text-color: var(--primary-color);
 
   /* 按钮 */
   --el-button-bg-color: var(--primary-color);
   --el-button-text-color: #fff;
+  --el-button-hover-bg-color: var(--primary-light);
+  --el-button-border-color: var(--primary-color);
+  --el-button-text-color-disabled: var(--text-placeholder);
+  --el-button-bg-color-disabled: var(--bg-color-light);
 
   /* 表格 */
   --el-table-bg-color: var(--card-bg);
@@ -109,16 +134,49 @@ html.dark body {
   --el-table-header-bg-color: var(--bg-color-light);
   --el-table-text-color: var(--text-regular);
   --el-table-border-color: var(--border-color);
+  --el-table-row-hover-bg-color: var(--bg-color-light);
 
   /* 对话框 */
   --el-dialog-bg-color: var(--card-bg);
+  --el-dialog-header-bg-color: var(--card-bg);
+  --el-dialog-border-color: var(--border-color);
 
   /* 下拉菜单 */
   --el-dropdown-menu-bg-color: var(--card-bg);
+  --el-dropdown-menu-border-color: var(--border-color);
+  --el-dropdown-menu-hover-bg-color: var(--bg-color-light);
 
   /* 弹出框 */
   --el-popover-bg-color: var(--card-bg);
+  --el-popover-border-color: var(--border-color);
 
   /* 消息提示 */
   --el-message-bg-color: var(--card-bg);
+  --el-message-border-color: var(--border-color);
+
+  /* 标签 */
+  --el-tag-bg-color: var(--bg-color-light);
+  --el-tag-text-color: var(--text-regular);
+  --el-tag-border-color: var(--border-color);
+
+  /* 选择器 */
+  --el-select-dropdown-bg-color: var(--card-bg);
+  --el-select-dropdown-border-color: var(--border-color);
+
+  /* 时间线 */
+  --el-timeline-item-bg-color: var(--card-bg);
+  --el-timeline-item-timestamp-color: var(--text-secondary);
+
+  /* 徽章 */
+  --el-badge-bg-color: var(--danger-color);
+  --el-badge-text-color: #fff;
+
+  /* 空状态 */
+  --el-empty-text-color: var(--text-secondary);
+
+  /* 分页 */
+  --el-pagination-bg-color: var(--card-bg);
+  --el-pagination-button-bg-color: var(--card-bg);
+  --el-pagination-button-border-color: var(--border-color);
+  --el-pagination-button-text-color: var(--text-regular);
 }

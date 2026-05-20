@@ -162,9 +162,15 @@ onMounted(() => {
   display: flex;
   align-items: stretch;
 
+  :deep(.el-card) {
+    background: var(--card-bg, #ffffff);
+    border-color: var(--border-color, #dcdfe6);
+  }
+
   :deep(.el-card__body) {
     padding: 24px;
     width: 100%;
+    background: var(--card-bg, #ffffff);
   }
 }
 
@@ -209,37 +215,51 @@ onMounted(() => {
 .stat-value {
   font-size: 32px;
   font-weight: 600;
-  color: #303133;
+  color: var(--text-primary, #303133);
   line-height: 1.2;
 }
 
 .stat-label {
   font-size: 14px;
-  color: #909399;
+  color: var(--text-secondary, #909399);
   margin-top: 4px;
 }
 
 .events-card {
   grid-column: span 2;
 
+  :deep(.el-card) {
+    background: var(--card-bg, #ffffff);
+    border-color: var(--border-color, #dcdfe6);
+  }
+
   :deep(.el-card__body) {
     padding: 20px;
+    background: var(--card-bg, #ffffff);
   }
 
   :deep(.el-card__header) {
     padding: 16px 20px;
-    border-bottom: 1px solid #EBEEF5;
+    border-bottom: 1px solid var(--border-lighter, #EBEEF5);
+    background: var(--card-bg, #ffffff);
   }
 }
 
 .reminders-card {
+  :deep(.el-card) {
+    background: var(--card-bg, #ffffff);
+    border-color: var(--border-color, #dcdfe6);
+  }
+
   :deep(.el-card__body) {
     padding: 20px;
+    background: var(--card-bg, #ffffff);
   }
 
   :deep(.el-card__header) {
     padding: 16px 20px;
-    border-bottom: 1px solid #EBEEF5;
+    border-bottom: 1px solid var(--border-lighter, #EBEEF5);
+    background: var(--card-bg, #ffffff);
   }
 }
 
@@ -252,7 +272,7 @@ onMounted(() => {
 .card-title {
   font-size: 18px;
   font-weight: 500;
-  color: #303133;
+  color: var(--text-primary, #303133);
 }
 
 .events-timeline {
@@ -274,12 +294,12 @@ onMounted(() => {
 .event-title {
   font-size: 16px;
   font-weight: 500;
-  color: #303133;
+  color: var(--text-primary, #303133);
 }
 
 .event-description {
   font-size: 14px;
-  color: #606266;
+  color: var(--text-regular, #606266);
   margin-bottom: 4px;
   line-height: 1.6;
   padding-left: 24px;
@@ -290,7 +310,7 @@ onMounted(() => {
   align-items: center;
   gap: 4px;
   font-size: 13px;
-  color: #909399;
+  color: var(--text-secondary, #909399);
   padding-left: 24px;
 }
 
@@ -301,7 +321,7 @@ onMounted(() => {
 
 .reminder-item {
   padding: 16px 0;
-  border-bottom: 1px solid #EBEEF5;
+  border-bottom: 1px solid var(--border-lighter, #EBEEF5);
 
   &:last-child {
     border-bottom: none;
@@ -310,7 +330,7 @@ onMounted(() => {
 
 .reminder-date {
   font-size: 14px;
-  color: #409EFF;
+  color: var(--primary-color, #409EFF);
   font-weight: 500;
   margin-bottom: 8px;
   display: flex;
@@ -324,12 +344,36 @@ onMounted(() => {
 
 .reminder-title {
   font-size: 14px;
-  color: #303133;
+  color: var(--text-primary, #303133);
   margin-bottom: 4px;
 }
 
 .reminder-person {
   font-size: 12px;
-  color: #909399;
+  color: var(--text-secondary, #909399);
+}
+</style>
+
+<!-- 深色模式覆盖样式 -->
+<style lang="scss">
+.dashboard-container {
+  .stat-card, .events-card, .reminders-card {
+    .el-card {
+      background: var(--card-bg) !important;
+      border-color: var(--border-color) !important;
+      color: var(--text-primary) !important;
+    }
+
+    .el-card__body {
+      background: var(--card-bg) !important;
+      color: var(--text-primary) !important;
+    }
+
+    .el-card__header {
+      background: var(--card-bg) !important;
+      border-bottom-color: var(--border-color) !important;
+      color: var(--text-primary) !important;
+    }
+  }
 }
 </style>
