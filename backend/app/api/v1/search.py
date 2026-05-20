@@ -49,12 +49,14 @@ async def search_persons(
     return [
         {
             "id": person.id,
-            "name": f"{person.first_name or ''}{person.last_name or ''}",
+            "first_name": person.first_name,
+            "last_name": person.last_name,
             "nickname": person.nickname,
             "gender": person.gender,
             "birth_date": person.birth_date.isoformat() if person.birth_date else None,
             "death_date": person.death_date.isoformat() if person.death_date else None,
-            "avatar_url": person.avatar_url
+            "avatar_url": person.avatar_url,
+            "is_me": person.is_me
         }
         for person in persons
     ]
