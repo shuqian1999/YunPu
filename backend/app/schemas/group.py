@@ -1,4 +1,5 @@
 from pydantic import BaseModel
+from datetime import datetime
 
 
 class GroupCreate(BaseModel):
@@ -18,8 +19,8 @@ class GroupResponse(BaseModel):
     name: str
     color: str
     description: str | None
-    created_at: str
-    updated_at: str | None
+    created_at: datetime
+    updated_at: datetime | None
 
     class Config:
-        orm_mode = True
+        from_attributes = True

@@ -29,7 +29,7 @@ async def search_persons(
         persons_query = persons_query.filter(search_filter)
     
     if group_id:
-        from app.models.person_group_member import PersonGroupMember
+        from app.models.person_group import PersonGroupMember
         persons_query = persons_query.join(
             PersonGroupMember,
             Person.id == PersonGroupMember.person_id

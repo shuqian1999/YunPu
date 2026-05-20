@@ -36,9 +36,13 @@
             :label="group.name"
             :value="group.id"
           >
-            <el-tag :color="group.color" size="small" class="group-option-tag">
-              {{ group.name }}
-            </el-tag>
+            <span class="group-option-content">
+              <span
+                class="group-color-indicator"
+                :style="{ backgroundColor: group.color }"
+              ></span>
+              <span class="group-option-name">{{ group.name }}</span>
+            </span>
           </el-option>
         </el-select>
         
@@ -286,8 +290,21 @@ onMounted(() => {
   width: 140px;
 }
 
-.group-option-tag {
-  margin-right: 0;
+.group-option-content {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.group-color-indicator {
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.group-option-name {
+  flex: 1;
 }
 
 .persons-grid {

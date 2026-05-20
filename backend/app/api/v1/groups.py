@@ -85,6 +85,47 @@ async def delete_group(
     db.commit()
 
 
+@router.get("/{group_id}/members")
+async def get_group_members(
+    group_id: int,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    from app.models.person import Person
+    
+    # 先验证分组是否属于当前用户
+    db_group = db.query(PersonGroup).filter(
+        PersonGroup.id == group_id,
+        PersonGroup.user_id == current_user.id
+    ).first()
+    
+    if not db_group:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="分组不存在"
+        )
+    
+    members = db.query(
+        PersonGroupMember,
+        Person
+    ).join(
+        Person, Person.id == PersonGroupMember.person_id
+    ).filter(
+        PersonGroupMember.group_id == group_id
+    ).all()
+    
+    result = []
+    for member, person in members:
+        result.append({
+            "id": member.id,
+            "person_id": person.id,
+            "person_name": f"{person.last_name}{person.first_name}" if person.last_name or person.first_name else "未知",
+            "person_nickname": person.nickname
+        })
+    
+    return result
+
+
 @router.post("/{group_id}/members/{person_id}")
 async def add_person_to_group(
     group_id: int,
@@ -132,3 +173,20 @@ async def remove_person_from_group(
     db.commit()
     
     return {"message": "移除成功"}
+
+
+@router.get("/person/{person_id}", response_model=List[GroupResponse])
+async def get_person_groups(
+    person_id: int,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    groups = db.query(PersonGroup).join(
+        PersonGroupMember,
+        PersonGroup.id == PersonGroupMember.group_id
+    ).filter(
+        PersonGroupMember.person_id == person_id,
+        PersonGroup.user_id == current_user.id
+    ).order_by(PersonGroup.created_at.asc()).all()
+    
+    return groups

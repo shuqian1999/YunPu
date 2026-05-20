@@ -542,7 +542,7 @@ import { ref, onMounted, reactive, computed, watch } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { User, MapLocation, Edit, Camera, Loading, Plus, Delete } from '@element-plus/icons-vue'
 import { getPerson, getPersonEvents, getPersonReminders, getPersonDetail, updatePersonFamily, getPersons, updatePerson, uploadPersonAvatar, deletePersonAvatar } from '@/api/persons'
-import { getGroups, addPersonToGroup, removePersonFromGroup } from '@/api/groups'
+import { getGroups, addPersonToGroup, removePersonFromGroup, getPersonGroups } from '@/api/groups'
 import { createEvent, updateEvent, deleteEvent } from '@/api/events'
 import { createReminder, updateReminder, deleteReminder } from '@/api/reminders'
 import { getEventTypes } from '@/api/event_types'
@@ -935,8 +935,8 @@ const loadData = async () => {
     allGroups.value = groupsData
 
     // 获取该人物所属的分组
-    // 这里需要后端提供获取人物分组的接口，暂时使用模拟数据
-    personGroups.value = []
+    const personGroupsData = await getPersonGroups(personId)
+    personGroups.value = personGroupsData
 
     availableFamilyMembers.value = personsData.map(p => ({
       id: p.id,

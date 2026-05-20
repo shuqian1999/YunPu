@@ -44,9 +44,9 @@
             </el-button>
           </div>
           
-          <div v-if="getGroupMembers(group.id).length > 0" class="members-list">
-            <el-tag
-              v-for="member in getGroupMembers(group.id)"
+          <div v-if="getGroupMembersFromState(group.id).length > 0" class="members-list">
+                  <el-tag
+                    v-for="member in getGroupMembersFromState(group.id)"
               :key="member.id"
               closable
               class="member-tag"
@@ -150,13 +150,13 @@
 import { ref, reactive, computed, onMounted } from 'vue'
 import { Plus, Edit, Delete, Search } from '@element-plus/icons-vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { getGroups, createGroup, updateGroup, deleteGroup, addPersonToGroup, removePersonFromGroup } from '@/api/groups'
+import { getGroups, createGroup, updateGroup, deleteGroup, addPersonToGroup, removePersonFromGroup, getGroupMembers } from '@/api/groups'
 import { getPersons } from '@/api/persons'
 
 const loading = ref(false)
 const groups = ref([])
 const persons = ref([])
-const groupMembers = ref({}) // groupId -> members mapping
+const groupMembers = reactive({}) // groupId -> members mapping
 
 // 分组表单
 const formVisible = ref(false)
@@ -210,10 +210,14 @@ const loadGroups = async () => {
 }
 
 const loadGroupMembers = async (groupId) => {
-  // 这里需要后端提供获取分组成员的接口
-  // 暂时使用空数组
-  if (!groupMembers.value[groupId]) {
-    groupMembers.value[groupId] = []
+  try {
+    const members = await getGroupMembers(groupId)
+    // reactive 对象可以直接赋值
+    groupMembers[groupId] = members
+    console.log(`加载分组成员成功，分组ID: ${groupId}，成员数: ${members.length}`)
+  } catch (error) {
+    console.error('加载分组成员失败:', error)
+    groupMembers[groupId] = []
   }
 }
 
@@ -229,8 +233,8 @@ const loadPersons = async () => {
   }
 }
 
-const getGroupMembers = (groupId) => {
-  return groupMembers.value[groupId] || []
+const getGroupMembersFromState = (groupId) => {
+  return groupMembers[groupId] || []
 }
 
 const handleCreate = () => {

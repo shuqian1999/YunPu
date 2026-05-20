@@ -37,9 +37,23 @@ export const addPersonToGroup = (groupId, personId) => {
   })
 }
 
+export const getGroupMembers = (groupId) => {
+  return request({
+    url: `/groups/${groupId}/members`,
+    method: 'get'
+  })
+}
+
 export const removePersonFromGroup = (groupId, personId) => {
   return request({
     url: `/groups/${groupId}/members/${personId}`,
     method: 'delete'
+  })
+}
+
+export const getPersonGroups = (personId) => {
+  return request({
+    url: `/groups/person/${personId}`,
+    method: 'get'
   })
 }
