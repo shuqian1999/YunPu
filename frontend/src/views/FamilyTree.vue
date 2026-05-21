@@ -216,22 +216,31 @@ const goBack = () => {
 }
 
 const buildHierarchy = (nodes, edges) => {
-  if (!nodes || nodes.length === 0) return null
+  console.log('buildHierarchy called with nodes:', nodes, 'edges:', edges)
+  if (!nodes || nodes.length === 0) {
+    console.warn('buildHierarchy: nodes is empty or null')
+    return null
+  }
 
   const personMap = {}
   nodes.forEach(node => {
+    console.log('processing node:', node)
     if (!node || !node.id) return
-    personMap[String(node.id)] = {
-      id: node.id,
+    const personId = parseInt(node.id, 10)  // 确保 ID 是数字
+    console.log('personId:', personId)
+    const name = node.name || '未知'
+    personMap[String(personId)] = {
+      id: personId,
       first_name: '',
-      last_name: node.name || '未知',
+      last_name: name,
       birth_date: node.birth_date || null,
       death_date: node.death_date || null,
       gender: GENDER_MAP[node.gender] || 'male',
       is_me: node.is_me || false,
-      name: node.name || '未知'
+      name: name
     }
   })
+  console.log('personMap:', personMap)
 
   const childrenByParent = {}
 
@@ -275,10 +284,18 @@ const buildHierarchy = (nodes, edges) => {
     const children = (childrenByParent[id] || [])
       .map(convertNode)
       .filter(Boolean)
-    return { data: person, children: children.length > 0 ? children : undefined }
+    return { id: person.id, ...person, children: children.length > 0 ? children : undefined }
   }
 
-  return convertNode(rootIds[0])
+  // 构建虚拟根节点，包含所有孤立人物
+  const virtualRoot = {
+    id: 'virtual_root',
+    name: '家族',
+    is_me: false,
+    children: rootIds.map(id => convertNode(id)).filter(Boolean)
+  }
+
+  return virtualRoot
 }
 
 const initSvg = () => {
@@ -316,7 +333,8 @@ const renderTree = (rootNode) => {
   const treeLayout = d3.tree().nodeSize([CARD_WIDTH + H_GAP, CARD_HEIGHT + V_GAP])
   treeLayout(root)
 
-  const descendants = root.descendants()
+  // 过滤掉虚拟根节点
+  const descendants = root.descendants().filter(d => d.data.id !== 'virtual_root')
 
   const container = treeContainer.value
   if (!container) return
@@ -329,7 +347,10 @@ const renderTree = (rootNode) => {
   const offsetX = Math.max((width - treeWidth) / 2 - minX + CARD_WIDTH / 2, 50)
   const offsetY = 50
 
-  const links = root.links()
+  // 过滤掉与虚拟根节点相关的链接
+  const links = root.links().filter(link => 
+    link.source.data.id !== 'virtual_root' && link.target.data.id !== 'virtual_root'
+  )
   gRoot.selectAll('.link')
     .data(links)
     .enter().append('path')
@@ -424,6 +445,9 @@ const renderTree = (rootNode) => {
   // 点击事件
   nodes.on('click', async (event, d) => {
     event.stopPropagation()
+    console.log('node clicked, d:', d)
+    console.log('d.data:', d.data)
+    console.log('d.data.id:', d.data?.id)
     // 获取与"我"的关系
     let relationToMe = null
     if (d.data && d.data.id) {
@@ -433,6 +457,7 @@ const renderTree = (rootNode) => {
       ...d.data,
       relation_to_me: relationToMe
     }
+    console.log('selectedPerson:', selectedPerson.value)
   })
 
   svg.on('click', () => {
@@ -446,6 +471,10 @@ const loadTree = async () => {
       getFamilyTree(),
       getPersons()
     ])
+
+    console.log('treeRes:', treeRes)
+    console.log('treeRes.nodes:', treeRes.nodes)
+    console.log('treeRes.edges:', treeRes.edges)
 
     availablePersons.value = personsRes.map(p => ({
       id: p.id,
@@ -465,7 +494,14 @@ const loadTree = async () => {
 }
 
 const editPerson = (personId) => {
-  router.push(`/persons/${personId}`)
+  console.log('editPerson called with:', personId, typeof personId)
+  const id = parseInt(personId, 10)
+  console.log('parsed id:', id)
+  if (isNaN(id)) {
+    ElMessage.error('无效的人物ID: ' + personId)
+    return
+  }
+  router.push(`/persons/${id}`)
 }
 
 const addRelation = () => {
