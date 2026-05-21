@@ -43,8 +43,8 @@
         </el-form-item>
 
         <template v-if="relationForm.relationType === 'family'">
-          <el-form-item label="人物A">
-            <el-select v-model="relationForm.person_a_id" placeholder="选择人物">
+          <el-form-item label="人物A（作为主体）">
+            <el-select v-model="relationForm.person_a_id" placeholder="选择人物" filterable>
               <el-option 
                 v-for="p in availablePersons" 
                 :key="p.id" 
@@ -61,8 +61,8 @@
               <el-option label="女儿" :value="3" />
             </el-select>
           </el-form-item>
-          <el-form-item label="人物B">
-            <el-select v-model="relationForm.person_b_id" placeholder="选择人物">
+          <el-form-item label="人物B（作为客体）">
+            <el-select v-model="relationForm.person_b_id" placeholder="选择人物" filterable>
               <el-option 
                 v-for="p in availablePersons" 
                 :key="p.id" 
@@ -80,15 +80,20 @@
               <el-option label="干（干亲）" :value="4" />
             </el-select>
           </el-form-item>
+          <el-form-item>
+            <div class="relation-preview">
+              <strong>{{ getRelationPreview() }}</strong>
+            </div>
+          </el-form-item>
         </template>
 
         <template v-else>
-          <el-form-item label="人物A">
-            <el-select v-model="relationForm.person_a_id" placeholder="选择人物">
-              <el-option 
-                v-for="p in availablePersons" 
-                :key="p.id" 
-                :label="p.name" 
+          <el-form-item label="人物A（作为主体）">
+            <el-select v-model="relationForm.person_a_id" placeholder="选择人物" filterable>
+              <el-option
+                v-for="p in availablePersons"
+                :key="p.id"
+                :label="p.name"
                 :value="p.id"
               />
             </el-select>
@@ -102,12 +107,12 @@
               <el-option label="女朋友" :value="4" />
             </el-select>
           </el-form-item>
-          <el-form-item label="人物B">
-            <el-select v-model="relationForm.person_b_id" placeholder="选择人物">
-              <el-option 
-                v-for="p in availablePersons" 
-                :key="p.id" 
-                :label="p.name" 
+          <el-form-item label="人物B（作为客体）">
+            <el-select v-model="relationForm.person_b_id" placeholder="选择人物" filterable>
+              <el-option
+                v-for="p in availablePersons"
+                :key="p.id"
+                :label="p.name"
                 :value="p.id"
               />
             </el-select>
@@ -117,6 +122,11 @@
               <el-option label="现任" :value="0" />
               <el-option label="前任" :value="1" />
             </el-select>
+          </el-form-item>
+          <el-form-item>
+            <div class="relation-preview">
+              <strong>{{ getRelationPreview() }}</strong>
+            </div>
           </el-form-item>
         </template>
       </el-form>
@@ -216,18 +226,14 @@ const goBack = () => {
 }
 
 const buildHierarchy = (nodes, edges) => {
-  console.log('buildHierarchy called with nodes:', nodes, 'edges:', edges)
   if (!nodes || nodes.length === 0) {
-    console.warn('buildHierarchy: nodes is empty or null')
     return null
   }
 
   const personMap = {}
   nodes.forEach(node => {
-    console.log('processing node:', node)
     if (!node || !node.id) return
     const personId = parseInt(node.id, 10)  // 确保 ID 是数字
-    console.log('personId:', personId)
     const name = node.name || '未知'
     personMap[String(personId)] = {
       id: personId,
@@ -240,7 +246,6 @@ const buildHierarchy = (nodes, edges) => {
       name: name
     }
   })
-  console.log('personMap:', personMap)
 
   const childrenByParent = {}
 
@@ -445,9 +450,6 @@ const renderTree = (rootNode) => {
   // 点击事件
   nodes.on('click', async (event, d) => {
     event.stopPropagation()
-    console.log('node clicked, d:', d)
-    console.log('d.data:', d.data)
-    console.log('d.data.id:', d.data?.id)
     // 获取与"我"的关系
     let relationToMe = null
     if (d.data && d.data.id) {
@@ -457,7 +459,6 @@ const renderTree = (rootNode) => {
       ...d.data,
       relation_to_me: relationToMe
     }
-    console.log('selectedPerson:', selectedPerson.value)
   })
 
   svg.on('click', () => {
@@ -471,10 +472,6 @@ const loadTree = async () => {
       getFamilyTree(),
       getPersons()
     ])
-
-    console.log('treeRes:', treeRes)
-    console.log('treeRes.nodes:', treeRes.nodes)
-    console.log('treeRes.edges:', treeRes.edges)
 
     availablePersons.value = personsRes.map(p => ({
       id: p.id,
@@ -494,18 +491,43 @@ const loadTree = async () => {
 }
 
 const editPerson = (personId) => {
-  console.log('editPerson called with:', personId, typeof personId)
   const id = parseInt(personId, 10)
-  console.log('parsed id:', id)
   if (isNaN(id)) {
-    ElMessage.error('无效的人物ID: ' + personId)
+    ElMessage.error('无效的人物ID')
     return
   }
   router.push(`/persons/${id}`)
 }
 
 const addRelation = () => {
+  // 重置表单
+  relationForm.value = {
+    relationType: 'family',
+    person_a_id: null,
+    person_b_id: null,
+    relation: 0,
+    relation_nature: 0
+  }
   showAddRelation.value = true
+}
+
+const getRelationPreview = () => {
+  const personA = availablePersons.value.find(p => p.id === relationForm.value.person_a_id)
+  const personB = availablePersons.value.find(p => p.id === relationForm.value.person_b_id)
+  
+  if (!personA || !personB) {
+    return '请选择两个人物以预览关系'
+  }
+  
+  const relationLabels = {
+    family: { 0: '父亲', 1: '母亲', 2: '儿子', 3: '女儿' },
+    spouse: { 0: '丈夫', 1: '妻子', 2: '姨太太', 3: '男朋友', 4: '女朋友' }
+  }
+  
+  const type = relationForm.value.relationType
+  const relation = relationLabels[type]?.[relationForm.value.relation] || '未知'
+  
+  return `${personA.name} 是 ${personB.name} 的 ${relation}`
 }
 
 const submitRelation = async () => {
@@ -642,5 +664,13 @@ onUnmounted(() => {
 .detail-actions {
   margin-top: 16px;
   text-align: center;
+}
+.relation-preview {
+  padding: 12px 16px;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  border-radius: 8px;
+  color: white;
+  text-align: center;
+  font-size: 14px;
 }
 </style>

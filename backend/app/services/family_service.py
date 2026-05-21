@@ -458,17 +458,7 @@ class FamilyService:
         return reverse_map.get(relation, relation)
     
     def _get_relation_name(self, relation: int, relation_nature: int, direction: str) -> str:
-        """获取关系名称"""
-        # 关系性质前缀
-        nature_prefix = {
-            RelationNature.BIOLOGICAL: "",
-            RelationNature.STEP: "继",
-            RelationNature.ADOPTIVE: "养",
-            RelationNature.SWORN: "义",
-            RelationNature.FOSTER: "干"
-        }
-        prefix = nature_prefix.get(relation_nature, "")
-        
+        """获取关系名称（不含性质前缀）"""
         # 基础关系名称
         if direction == "to_me":
             relation_names = {
@@ -485,8 +475,7 @@ class FamilyService:
                 FamilyRelationType.DAUGHTER: "女儿"
             }
         
-        name = relation_names.get(relation, "未知")
-        return f"{prefix}{name}" if prefix else name
+        return relation_names.get(relation, "未知")
     
     def _get_spouse_relation_name(self, relation: int, direction: str) -> str:
         """获取配偶关系名称"""

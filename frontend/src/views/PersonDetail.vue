@@ -184,12 +184,12 @@
               class="relation-item clickable"
               @click="navigateToPerson(rel.person_id)"
             >
-              <div class="relation-name">{{ rel.name }}</div>
-              <div class="relation-type">
-                <span class="nature-tag">{{ rel.relation_name }}</span>
-                <span v-if="rel.relation_nature > 0" class="nature-tag secondary">
-                  {{ getRelationNatureLabel(rel.relation_nature) }}
+              <div class="relation-main">
+                <span class="nature-tag" :class="{ secondary: rel.relation_nature > 0 }">
+                  {{ rel.relation_nature > 0 ? getRelationNatureLabel(rel.relation_nature) : '亲' }}
                 </span>
+                <span class="relation-type">{{ rel.relation_name }}</span>
+                <span class="relation-name">{{ rel.name }}</span>
               </div>
             </div>
           </div>
@@ -378,6 +378,12 @@
               </el-select>
             </el-form-item>
           </template>
+
+          <el-form-item>
+            <div class="relation-preview">
+              <strong>{{ getPersonDetailRelationPreview() }}</strong>
+            </div>
+          </el-form-item>
 
           <el-form-item>
             <el-button type="primary" @click="handleAddRelation">添加关系</el-button>
@@ -726,6 +732,29 @@ const addCustomField = () => {
 
 const removeCustomField = (index) => {
   editForm.customFields.splice(index, 1)
+}
+
+const getPersonDetailRelationPreview = () => {
+  const currentPerson = personInfo.value
+  const personB = availablePersons.value.find(p => p.id === relationForm.person_b_id)
+
+  if (!currentPerson || !personB) {
+    return '请选择人物以预览关系'
+  }
+
+  const relationLabels = {
+    family: { 0: '父亲', 1: '母亲', 2: '儿子', 3: '女儿' },
+    spouse: { 0: '丈夫', 1: '妻子', 2: '姨太太', 3: '男朋友', 4: '女朋友' }
+  }
+
+  const type = relationForm.relationType
+  const relation = relationLabels[type]?.[relationForm.relation] || '未知'
+
+  return `${personB.name}，是${currentPerson.nickname || (currentPerson.last_name || '') + (currentPerson.first_name || '')}的${relation}`
+}
+
+const getRelationDescription = (rel) => {
+  return rel.relation_name
 }
 
 const handleAddRelation = async () => {
@@ -1464,5 +1493,29 @@ const handleToggleReminder = async (reminder) => {
   display: flex;
   align-items: center;
   gap: 8px;
+}
+.relation-preview {
+  padding: 12px 16px;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  border-radius: 8px;
+  color: white;
+  text-align: center;
+  font-size: 14px;
+}
+.relation-main {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.relation-type {
+  flex: 0 0 auto;
+  color: var(--text-secondary, #666);
+  min-width: 50px;
+}
+.relation-name {
+  flex: 1;
+  font-weight: 500;
+  color: var(--text-primary, #333);
 }
 </style>
