@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Integer, String, Date, DateTime, ForeignKey, Text
+from sqlalchemy import Column, Integer, String, Date, DateTime, ForeignKey, Text, Boolean
 from sqlalchemy.sql import func
 from sqlalchemy.orm import relationship
 from app.models.base import Base
@@ -13,6 +13,7 @@ class Event(Base):
     title = Column(String(200), nullable=False)
     description = Column(Text, nullable=True)
     event_date = Column(Date, nullable=False, index=True)
+    is_lunar = Column(Boolean, default=False)
     location = Column(String(200), nullable=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), onupdate=func.now())
@@ -28,6 +29,7 @@ class Event(Base):
             "title": self.title,
             "description": self.description,
             "event_date": self.event_date.isoformat() if self.event_date else None,
+            "is_lunar": self.is_lunar,
             "location": self.location,
             "created_at": self.created_at.isoformat() if self.created_at else None,
             "updated_at": self.updated_at.isoformat() if self.updated_at else None

@@ -13,7 +13,9 @@ class Person(Base):
     nickname = Column(String(50))
     gender = Column(Integer)
     birth_date = Column(Date)
+    is_lunar_birth = Column(Boolean, default=False)
     death_date = Column(Date)
+    is_lunar_death = Column(Boolean, default=False)
     country = Column(String(50))
     hometown = Column(String(100))
     residence = Column(String(100))
@@ -34,7 +36,9 @@ class Person(Base):
             "nickname": self.nickname,
             "gender": self.gender,
             "birth_date": self.birth_date.isoformat() if self.birth_date else None,
+            "is_lunar_birth": self.is_lunar_birth,
             "death_date": self.death_date.isoformat() if self.death_date else None,
+            "is_lunar_death": self.is_lunar_death,
             "country": self.country,
             "hometown": self.hometown,
             "residence": self.residence,

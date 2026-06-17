@@ -63,6 +63,27 @@ def startup_event():
       db.commit()
       
       print(f"初始用户创建成功：{settings.default_username}")
+    
+    # 初始化默认事件类型
+    default_event_types = [
+      {"name": "生日", "color": "#67c23a", "icon": "Calendar"},
+      {"name": "纪念日", "color": "#e6a23c", "icon": "Star"},
+      {"name": "聚会", "color": "#409eff", "icon": "ChatLineRound"},
+      {"name": "旅行", "color": "#909399", "icon": "Location"},
+      {"name": "工作", "color": "#f56c6c", "icon": "Briefcase"},
+      {"name": "学习", "color": "#9b59b6", "icon": "Reading"},
+      {"name": "健康", "color": "#1abc9c", "icon": "FirstAidKit"},
+      {"name": "其他", "color": "#c0c4cc", "icon": "More"}
+    ]
+    
+    for et_data in default_event_types:
+      existing_et = db.query(EventType).filter(EventType.name == et_data["name"]).first()
+      if not existing_et:
+        et = EventType(**et_data)
+        db.add(et)
+    
+    db.commit()
+    print("事件类型初始化完成")
   finally:
     db.close()
 

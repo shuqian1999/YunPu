@@ -33,7 +33,11 @@ async def search_persons(
         ).filter(PersonGroupMember.group_id == group_id)
     
     if gender is not None:
-        persons_query = persons_query.filter(Person.gender == gender)
+        if gender == 0:
+            # 0 表示"未知"，查询性别为空的
+            persons_query = persons_query.filter(Person.gender.is_(None))
+        else:
+            persons_query = persons_query.filter(Person.gender == gender)
     
     if is_alive is not None:
         if is_alive:
@@ -51,6 +55,7 @@ async def search_persons(
             "nickname": person.nickname,
             "gender": person.gender,
             "birth_date": person.birth_date.isoformat() if person.birth_date else None,
+            "is_lunar_birth": person.is_lunar_birth,
             "death_date": person.death_date.isoformat() if person.death_date else None,
             "avatar_url": person.avatar_url,
             "is_me": person.is_me

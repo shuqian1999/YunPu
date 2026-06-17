@@ -6,8 +6,10 @@ import uuid
 
 from app.core.database import get_db
 from app.models.person import Person
+from app.models.event import Event
 from app.schemas.person import PersonCreate, PersonUpdate, PersonResponse
 from app.services.family_service import FamilyService
+from app.services.lunar_service import LunarService
 
 router = APIRouter(prefix="/persons", tags=["人物"])
 
@@ -50,22 +52,34 @@ def get_person_events(
     db: Session = Depends(get_db)
 ):
     from app.models.event import Event
-    
+
     events = db.query(Event).filter(
         Event.person_id == person_id
-    ).order_by(Event.event_date.desc()).all()
-    
+    ).all()
+
+    # 转换为带 display_date 的列表，并按 display_date 排序（确保农历事件也按实际公历日期排序）
+    events_with_display = []
+    for event in events:
+        display_date_str = LunarService.get_solar_display_date(event.event_date, event.is_lunar)
+        events_with_display.append((event, display_date_str))
+
+    # 按 display_date 升序排序
+    events_with_display.sort(key=lambda x: x[1])
+
     return [
         {
             "id": event.id,
             "title": event.title,
             "description": event.description,
             "event_date": event.event_date.isoformat(),
+            "is_lunar": event.is_lunar,
+            "display_date": LunarService.get_solar_display_date(event.event_date, event.is_lunar),
+            "event_type_id": event.event_type_id,
             "location": event.location,
-            "event_type": event.event_type.name if event.event_type else None,
-            "event_type_color": event.event_type.color if event.event_type else "#409EFF"
+            "event_type": event.event_type.name if event.event_type else "其他",
+            "event_type_color": event.event_type.color if event.event_type else "#c0c4cc"
         }
-        for event in events
+        for event, _ in events_with_display
     ]
 
 
@@ -86,6 +100,7 @@ def get_person_reminders(
             "title": reminder.title,
             "remind_date": reminder.remind_date.isoformat(),
             "is_lunar": reminder.is_lunar,
+            "display_date": LunarService.get_solar_display_date(reminder.remind_date, reminder.is_lunar),
             "enabled": reminder.enabled
         }
         for reminder in reminders
@@ -113,9 +128,10 @@ def get_person_relations(
     for rel in family_as_a:
         person_b = db.query(Person).filter(Person.id == rel.person_b_id).first()
         if person_b:
+            person_b_name = f"{person_b.last_name or ''}{person_b.first_name or ''}".strip()
             relations.append({
                 "person_id": person_b.id,
-                "name": person_b.nickname or f"{person_b.last_name or ''}{person_b.first_name or ''}",
+                "name": person_b_name or f"人物{person_b.id}",
                 "relation_name": service._get_relation_name(rel.relation, rel.relation_nature, "from_a"),
                 "relation_type": rel.relation,
                 "relation_nature": rel.relation_nature
@@ -128,9 +144,10 @@ def get_person_relations(
     for rel in spouse_as_a:
         person_b = db.query(Person).filter(Person.id == rel.person_b_id).first()
         if person_b:
+            person_b_name = f"{person_b.last_name or ''}{person_b.first_name or ''}".strip()
             relations.append({
                 "person_id": person_b.id,
-                "name": person_b.nickname or f"{person_b.last_name or ''}{person_b.first_name or ''}",
+                "name": person_b_name or f"人物{person_b.id}",
                 "relation_name": service._get_spouse_relation_name(rel.relation, "from_a"),
                 "relation_type": f"spouse_{rel.relation}",
                 "relation_nature": rel.relation_nature

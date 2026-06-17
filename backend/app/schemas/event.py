@@ -9,6 +9,7 @@ class EventBase(BaseModel):
     title: str = Field(..., max_length=200)
     description: Optional[str] = None
     event_date: date
+    is_lunar: bool = False
     location: Optional[str] = Field(None, max_length=200)
 
 

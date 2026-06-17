@@ -29,10 +29,6 @@
             <el-icon><User /></el-icon>
             <span>人物管理</span>
           </el-menu-item>
-          <el-menu-item index="/family/tree">
-            <el-icon><Guide /></el-icon>
-            <span>家族树</span>
-          </el-menu-item>
           <el-menu-item index="/groups">
             <el-icon><CollectionTag /></el-icon>
             <span>分组管理</span>

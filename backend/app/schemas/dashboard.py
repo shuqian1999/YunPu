@@ -13,6 +13,9 @@ class DashboardEvent(BaseModel):
     title: str
     description: Optional[str] = None
     event_date: str
+    is_lunar: bool = False
+    display_date: Optional[str] = None
+    event_type_id: Optional[int] = None
     location: Optional[str] = None
     event_type: Optional[str] = None
     event_type_color: Optional[str] = None
@@ -24,6 +27,7 @@ class DashboardReminder(BaseModel):
     id: int
     title: str
     remind_date: str
-    is_lunar: bool
+    is_lunar: bool = False
+    display_date: Optional[str] = None
     person_id: Optional[int] = None
     person_name: Optional[str] = None

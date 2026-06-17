@@ -87,8 +87,26 @@
           </div>
           <div class="info-row">
             <span class="label">出生日期</span>
-            <span v-if="!isEditing" class="value">{{ formatDate(personInfo.birth_date) }}</span>
-            <el-date-picker v-else v-model="editForm.birth_date" type="date" placeholder="选择出生日期" value-format="YYYY-MM-DD" class="edit-input" />
+            <span v-if="!isEditing" class="value date-value">
+              <template v-if="personInfo.birth_date">
+                {{ formatDate(personInfo.birth_date) }}
+                <el-tag v-if="personInfo.is_lunar_birth" type="warning" size="small" class="lunar-mini-tag">农历</el-tag>
+              </template>
+              <template v-else>-</template>
+            </span>
+            <div v-else class="edit-input birth-edit-group">
+              <el-date-picker
+                v-model="editForm.birth_date"
+                type="date"
+                placeholder="选择出生日期"
+                value-format="YYYY-MM-DD"
+                format="YYYY年M月D日"
+                style="flex: 1"
+              />
+              <el-tooltip :content="editForm.is_lunar_birth ? '此日期按农历记录' : '此日期按公历记录'" placement="top">
+                <el-switch v-model="editForm.is_lunar_birth" active-text="农历" inactive-text="公历" inline-prompt class="lunar-switch" />
+              </el-tooltip>
+            </div>
           </div>
           <div class="info-row">
             <span class="label">是否已故</span>
@@ -97,8 +115,27 @@
           </div>
           <div class="info-row">
             <span class="label">逝世日期</span>
-            <span v-if="!isEditing" class="value">{{ personInfo.death_date ? formatDate(personInfo.death_date) : '-' }}</span>
-            <el-date-picker v-else v-model="editForm.death_date" type="date" placeholder="选择逝世日期" value-format="YYYY-MM-DD" class="edit-input" :disabled="!editForm.is_deceased" />
+            <span v-if="!isEditing" class="value date-value">
+              <template v-if="personInfo.death_date">
+                {{ formatDate(personInfo.death_date) }}
+                <el-tag v-if="personInfo.is_lunar_death" type="warning" size="small" class="lunar-mini-tag">农历</el-tag>
+              </template>
+              <template v-else>-</template>
+            </span>
+            <div v-else class="edit-input birth-edit-group">
+              <el-date-picker
+                v-model="editForm.death_date"
+                type="date"
+                placeholder="选择逝世日期"
+                value-format="YYYY-MM-DD"
+                format="YYYY年M月D日"
+                :disabled="!editForm.is_deceased"
+                style="flex: 1"
+              />
+              <el-tooltip :content="editForm.is_lunar_death ? '此日期按农历记录' : '此日期按公历记录'" placement="top">
+                <el-switch v-model="editForm.is_lunar_death" active-text="农历" inactive-text="公历" inline-prompt :disabled="!editForm.is_deceased" class="lunar-switch" />
+              </el-tooltip>
+            </div>
           </div>
           <div class="info-row">
             <span class="label">国家</span>
@@ -185,11 +222,15 @@
               @click="navigateToPerson(rel.person_id)"
             >
               <div class="relation-main">
-                <span class="nature-tag" :class="{ secondary: rel.relation_nature > 0 }">
+                <span class="relation-item-label" :class="getNatureTagClass(rel.relation_nature)">
                   {{ rel.relation_nature > 0 ? getRelationNatureLabel(rel.relation_nature) : '亲' }}
                 </span>
-                <span class="relation-type">{{ rel.relation_name }}</span>
-                <span class="relation-name">{{ rel.name }}</span>
+                <span class="relation-item-separator">·</span>
+                <span class="relation-item-label" :class="getRelationTypeClass(rel.relation_name)">
+                  {{ rel.relation_name }}
+                </span>
+                <span class="relation-item-separator">·</span>
+                <span class="relation-item-label relation-person">{{ rel.name }}</span>
               </div>
             </div>
           </div>
@@ -211,17 +252,30 @@
           <div v-else class="event-list">
             <el-timeline>
               <el-timeline-item
-                v-for="event in events"
+                v-for="event in eventGroups"
                 :key="event.id"
-                :timestamp="formatDate(event.event_date)"
                 placement="top"
+                :color="event.event_type_color || '#c0c4cc'"
+                :hollow="event.showDate"
               >
+                <div
+                  v-if="event.showDate"
+                  class="event-date-badge"
+                  :style="{ borderColor: event.event_type_color || '#c0c4cc', color: event.event_type_color || '#c0c4cc' }"
+                >
+                  {{ formatTimelineDate(event.dateKey) }}
+                </div>
                 <el-card class="event-card" :shadow="false">
                   <div class="event-header">
                     <span class="event-title">{{ event.title }}</span>
                     <el-tag
-                      :color="event.event_type_color"
                       size="small"
+                      effect="dark"
+                      :style="{
+                        backgroundColor: event.event_type_color || '#c0c4cc',
+                        borderColor: event.event_type_color || '#c0c4cc',
+                        color: '#fff'
+                      }"
                       class="event-type-tag"
                     >
                       {{ event.event_type || '其他' }}
@@ -265,7 +319,6 @@
             >
               <div class="reminder-title-row">
                 <span class="reminder-title">{{ reminder.title }}</span>
-                <el-tag v-if="reminder.is_lunar" type="info" size="small">农历</el-tag>
                 <el-switch
                   v-model="reminder.enabled"
                   size="small"
@@ -273,7 +326,7 @@
                 />
               </div>
               <div class="reminder-row">
-                <span class="reminder-date">{{ formatDate(reminder.remind_date) }}</span>
+                <span class="reminder-date">{{ formatDate(reminder.display_date || reminder.remind_date) }}</span>
                 <div class="reminder-actions">
                   <el-button @click="openReminderDialog(reminder)" text type="primary" size="small">
                     <el-icon><Edit /></el-icon>
@@ -435,7 +488,16 @@
             type="date"
             placeholder="选择事件日期"
             value-format="YYYY-MM-DD"
+            format="YYYY年M月D日"
             style="width: 100%"
+          />
+        </el-form-item>
+        <el-form-item label="农历">
+          <el-switch
+            v-model="eventForm.is_lunar"
+            active-text="是"
+            inactive-text="否"
+            inline-prompt
           />
         </el-form-item>
         <el-form-item label="类型">
@@ -472,11 +534,17 @@
             type="date"
             placeholder="选择提醒日期"
             value-format="YYYY-MM-DD"
+            format="YYYY年M月D日"
             style="width: 100%"
           />
         </el-form-item>
         <el-form-item label="农历">
-          <el-switch v-model="reminderForm.is_lunar" active-text="是" inactive-text="否" />
+          <el-switch
+            v-model="reminderForm.is_lunar"
+            active-text="是"
+            inactive-text="否"
+            inline-prompt
+          />
         </el-form-item>
         <el-form-item label="启用">
           <el-switch v-model="reminderForm.enabled" active-text="是" inactive-text="否" />
@@ -532,6 +600,7 @@ const eventForm = reactive({
   title: '',
   event_date: '',
   event_type_id: null,
+  is_lunar: false,
   description: '',
   location: ''
 })
@@ -567,8 +636,10 @@ const editForm = reactive({
   name: '',
   gender: null,
   birth_date: '',
+  is_lunar_birth: false,
   is_deceased: false,
   death_date: '',
+  is_lunar_death: false,
   country: '',
   hometown: '',
   residence: '',
@@ -585,6 +656,27 @@ const formatDate = (dateString) => {
     day: 'numeric'
   })
 }
+
+const formatTimelineDate = (dateString) => {
+  if (!dateString) return '-'
+  const date = new Date(dateString)
+  return date.toLocaleDateString('zh-CN', {
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit'
+  })
+}
+
+// 事件分组：同一天的事件只显示一次日期
+const eventGroups = computed(() => {
+  const seenDates = new Set()
+  return events.value.map(event => {
+    const dateKey = event.display_date || event.event_date
+    const showDate = !seenDates.has(dateKey)
+    seenDates.add(dateKey)
+    return { ...event, dateKey, showDate }
+  })
+})
 
 const getCountryName = (countryCode) => {
   if (!countryCode) return '-'
@@ -617,8 +709,10 @@ const startEdit = () => {
   editForm.name = p.last_name ? p.last_name + p.first_name : ''
   editForm.gender = p.gender || null
   editForm.birth_date = p.birth_date || ''
+  editForm.is_lunar_birth = !!p.is_lunar_birth
   editForm.is_deceased = !!p.death_date
   editForm.death_date = p.death_date || ''
+  editForm.is_lunar_death = !!p.is_lunar_death
   editForm.country = p.country || ''
   editForm.hometown = p.hometown || ''
   editForm.residence = p.residence || ''
@@ -708,7 +802,9 @@ const saveEdit = async () => {
       first_name: name.slice(1) || null,
       gender: editForm.gender,
       birth_date: editForm.birth_date || null,
-      death_date: editForm.is_deceased ? editForm.death_date || null : null,
+      is_lunar_birth: editForm.is_lunar_birth,
+      death_date: editForm.is_deceased ? (editForm.death_date || null) : null,
+      is_lunar_death: editForm.is_deceased ? editForm.is_lunar_death : false,
       country: editForm.country || null,
       hometown: editForm.hometown || null,
       residence: editForm.residence || null,
@@ -755,6 +851,26 @@ const getPersonDetailRelationPreview = () => {
 
 const getRelationDescription = (rel) => {
   return rel.relation_name
+}
+
+const getRelationTypeClass = (relationName) => {
+  const parentRelations = ['父亲', '母亲', '爸爸', '妈妈']
+  const childRelations = ['儿子', '女儿']
+  const spouseRelations = ['丈夫', '妻子', '姨太太', '男朋友', '女朋友']
+
+  if (parentRelations.includes(relationName)) return 'relation-parent'
+  if (childRelations.includes(relationName)) return 'relation-child'
+  if (spouseRelations.includes(relationName)) return 'relation-spouse'
+  return 'relation-other'
+}
+
+const getNatureTagClass = (nature) => {
+  if (nature === 0) return 'relation-nature-blood'
+  if (nature === 1) return 'relation-nature-step'
+  if (nature === 2) return 'relation-nature-adopt'
+  if (nature === 3) return 'relation-nature-sworn'
+  if (nature === 4) return 'relation-nature-god'
+  return 'relation-nature-other'
 }
 
 const handleAddRelation = async () => {
@@ -857,11 +973,39 @@ const loadData = async () => {
 
 const loadRelations = async () => {
   try {
-    relations.value = await getPersonRelations(personId)
+    const res = await getPersonRelations(personId)
+    relations.value = sortRelations(res)
   } catch (error) {
     console.error('获取关系失败:', error)
     relations.value = []
   }
+}
+
+const sortRelations = (rels) => {
+  // 关系排序优先级：父母 > 配偶 > 儿女 > 其他
+  const orderMap = {
+    '父亲': 1,
+    '母亲': 1,
+    '爸爸': 1,
+    '妈妈': 1,
+    '丈夫': 2,
+    '妻子': 2,
+    '姨太太': 2,
+    '男朋友': 2,
+    '女朋友': 2,
+    '儿子': 3,
+    '女儿': 3
+  }
+
+  return [...rels].sort((a, b) => {
+    const aOrder = orderMap[a.relation_name] || 99
+    const bOrder = orderMap[b.relation_name] || 99
+    if (aOrder !== bOrder) {
+      return aOrder - bOrder
+    }
+    // 相同类别内按姓名排序
+    return (a.name || '').localeCompare(b.name || '', 'zh-CN')
+  })
 }
 
 onMounted(async () => {
@@ -917,6 +1061,7 @@ const openEventDialog = (event = null) => {
     eventForm.title = event.title
     eventForm.event_date = event.event_date
     eventForm.event_type_id = event.event_type_id
+    eventForm.is_lunar = event.is_lunar || false
     eventForm.description = event.description || ''
     eventForm.location = event.location || ''
   } else {
@@ -925,6 +1070,7 @@ const openEventDialog = (event = null) => {
     eventForm.title = ''
     eventForm.event_date = ''
     eventForm.event_type_id = null
+    eventForm.is_lunar = false
     eventForm.description = ''
     eventForm.location = ''
   }
@@ -944,6 +1090,7 @@ const submitEvent = async () => {
       title: eventForm.title,
       event_date: eventForm.event_date,
       event_type_id: eventForm.event_type_id,
+      is_lunar: eventForm.is_lunar,
       description: eventForm.description || null,
       location: eventForm.location || null
     }
@@ -1225,6 +1372,30 @@ const handleToggleReminder = async (reminder) => {
   width: 200px;
 }
 
+.birth-edit-group {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 280px;
+}
+
+.lunar-switch {
+  flex-shrink: 0;
+}
+
+.lunar-mini-tag {
+  margin-left: 6px;
+  font-size: 10px;
+  height: 18px;
+  line-height: 18px;
+  padding: 0 4px;
+}
+
+.date-value {
+  display: inline-flex;
+  align-items: center;
+}
+
 .info-row .edit-textarea {
   width: 300px;
 }
@@ -1395,6 +1566,43 @@ const handleToggleReminder = async (reminder) => {
   margin-top: 16px;
 }
 
+.event-date-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 6px 14px;
+  margin-bottom: 12px;
+  font-size: 14px;
+  font-weight: 600;
+  border: 2px solid;
+  border-radius: 16px;
+  background: var(--card-bg, #ffffff);
+  letter-spacing: 0.5px;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.06);
+}
+
+.event-card {
+  background: var(--bg-color-light, #f7f8fa) !important;
+  border: 1px solid var(--border-lighter, #EBEEF5) !important;
+  border-radius: 8px;
+  transition: all 0.2s ease;
+
+  &:hover {
+    background: var(--bg-color-hover, #eef0f3) !important;
+  }
+}
+
+.event-list :deep(.el-timeline-item) {
+  padding-bottom: 20px;
+
+  &:last-child {
+    padding-bottom: 0;
+  }
+}
+
+.event-list :deep(.el-timeline-item__node) {
+  z-index: 2;
+}
+
 .event-header {
   display: flex;
   justify-content: space-between;
@@ -1505,17 +1713,51 @@ const handleToggleReminder = async (reminder) => {
 .relation-main {
   display: flex;
   align-items: center;
-  gap: 8px;
-  flex-wrap: wrap;
+  gap: 6px;
+  flex-wrap: nowrap;
+  line-height: 1.5;
 }
-.relation-type {
-  flex: 0 0 auto;
-  color: var(--text-secondary, #666);
-  min-width: 50px;
-}
-.relation-name {
-  flex: 1;
+.relation-item-label {
+  font-size: 14px;
   font-weight: 500;
+}
+.relation-item-separator {
+  color: #ccc;
+  font-size: 14px;
+  margin: 0 2px;
+}
+.relation-person {
   color: var(--text-primary, #333);
+  font-weight: 600;
+}
+.relation-nature-blood {
+  color: #e6a23c;
+}
+.relation-nature-step {
+  color: #909399;
+}
+.relation-nature-adopt {
+  color: #67c23a;
+}
+.relation-nature-sworn {
+  color: #f56c6c;
+}
+.relation-nature-god {
+  color: #409eff;
+}
+.relation-nature-other {
+  color: #909399;
+}
+.relation-parent {
+  color: #e6a23c;
+}
+.relation-child {
+  color: #67c23a;
+}
+.relation-spouse {
+  color: #f56c6c;
+}
+.relation-other {
+  color: #409eff;
 }
 </style>

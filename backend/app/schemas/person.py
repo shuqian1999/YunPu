@@ -9,7 +9,9 @@ class PersonBase(BaseModel):
     nickname: Optional[str] = Field(None, max_length=50)
     gender: Optional[int] = None
     birth_date: Optional[date] = None
+    is_lunar_birth: bool = False
     death_date: Optional[date] = None
+    is_lunar_death: bool = False
     country: Optional[str] = Field(None, max_length=50)
     hometown: Optional[str] = Field(None, max_length=100)
     residence: Optional[str] = Field(None, max_length=100)

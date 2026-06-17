@@ -90,7 +90,7 @@
       >
         <div class="person-avatar">
           <el-avatar :size="80" :src="person.avatar_url">
-            {{ person.nickname || person.first_name || '?' }}
+            {{ person.first_name || person.nickname || '?' }}
           </el-avatar>
         </div>
         
@@ -100,6 +100,12 @@
           </div>
           <div v-if="person.nickname" class="person-nickname">
             {{ person.nickname }}
+          </div>
+          <div v-if="getPersonAgeText(person)" class="person-age">
+            {{ getPersonAgeText(person) }}
+            <el-tag v-if="person.is_lunar_birth" size="small" type="warning" class="lunar-tag">
+              农历
+            </el-tag>
           </div>
           <div class="person-tags">
             <el-tag v-if="person.is_me" type="primary" size="small">我</el-tag>
@@ -241,6 +247,39 @@ const handleFormSuccess = () => {
   loadPersons()
 }
 
+const calculateAge = (birthDate, endDate) => {
+  if (!birthDate) return null
+  const birth = new Date(birthDate)
+  const end = endDate ? new Date(endDate) : new Date()
+  if (isNaN(birth.getTime()) || isNaN(end.getTime())) return null
+  if (end < birth) return null
+
+  let years = end.getFullYear() - birth.getFullYear()
+  const monthDiff = end.getMonth() - birth.getMonth()
+  const dayDiff = end.getDate() - birth.getDate()
+
+  // 如果今年的生日还没到，年龄减1
+  if (monthDiff < 0 || (monthDiff === 0 && dayDiff < 0)) {
+    years--
+  }
+
+  if (years < 0) return 0
+  return years
+}
+
+const getPersonAgeText = (person) => {
+  if (person.birth_date) {
+    const age = calculateAge(person.birth_date, person.death_date)
+    if (age === null) return ''
+
+    if (person.death_date) {
+      return `${age}岁（已故）`
+    }
+    return `${age}岁`
+  }
+  return ''
+}
+
 onMounted(() => {
   loadGroups()
   loadPersons()
@@ -380,6 +419,24 @@ onMounted(() => {
   font-size: 14px;
   color: var(--text-secondary, #909399);
   margin-bottom: 8px;
+}
+
+.person-age {
+  font-size: 13px;
+  color: var(--el-color-primary, #409eff);
+  margin-bottom: 8px;
+  font-weight: 500;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+}
+
+.lunar-tag {
+  font-size: 10px;
+  height: 16px;
+  padding: 0 4px;
+  line-height: 16px;
 }
 
 .person-tags {

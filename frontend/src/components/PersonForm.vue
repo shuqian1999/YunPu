@@ -11,12 +11,12 @@
       :rules="rules"
       label-width="80px"
     >
-      <el-form-item label="称呼" prop="nickname">
-        <el-input v-model="form.nickname" placeholder="请输入称呼（必填）" />
+      <el-form-item label="姓名" prop="name">
+        <el-input v-model="form.name" placeholder="请输入姓名，第一个字默认为姓" />
       </el-form-item>
 
-      <el-form-item label="姓名" prop="name">
-        <el-input v-model="form.name" placeholder="请输入姓名（选填），第一个字默认为姓" />
+      <el-form-item label="称呼" prop="nickname">
+        <el-input v-model="form.nickname" placeholder="请输入称呼，如：爸爸、妈妈、小明" />
       </el-form-item>
 
       <el-form-item label="性别" prop="gender">
@@ -32,6 +32,7 @@
           type="date"
           placeholder="选择出生日期"
           value-format="YYYY-MM-DD"
+          format="YYYY年M月D日"
           style="width: 100%"
         />
       </el-form-item>
