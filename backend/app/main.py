@@ -14,6 +14,7 @@ from app.models.reminder import Reminder
 from app.models.event_type import EventType
 from app.models.notification import Notification
 from app.models.person_group import PersonGroup, PersonGroupMember
+from app.models.email import EmailConfig, EmailTemplate, EmailLog
 from app.core.security import hash_password
 
 # 确保上传目录存在
@@ -38,8 +39,16 @@ def startup_event():
   
   # 启动定时任务调度器
   try:
-    from app.tasks.scheduler import start_scheduler
+    from app.tasks.scheduler import start_scheduler, reschedule_email_job
     start_scheduler()
+    # 如果用户已配置发送时间，应用该时间
+    db = SessionLocal()
+    try:
+      config = db.query(EmailConfig).first()
+      if config and config.send_time:
+        reschedule_email_job(config.send_time)
+    finally:
+      db.close()
   except ImportError:
     print("注意: 定时任务功能不可用，请安装 apscheduler: pip install apscheduler")
   
@@ -81,9 +90,67 @@ def startup_event():
       if not existing_et:
         et = EventType(**et_data)
         db.add(et)
-    
+
     db.commit()
     print("事件类型初始化完成")
+
+    # 初始化默认邮件配置
+    existing_email_config = db.query(EmailConfig).first()
+    if not existing_email_config:
+      email_config = EmailConfig(
+        smtp_host="",
+        smtp_port=465,
+        use_ssl=True,
+        username="",
+        password="",
+        receivers="",
+        send_time="08:00",
+        enabled=False,
+        advance_days=7,
+        reminder_types="生日,纪念日",
+        include_events=True,
+        include_reminders=True
+      )
+      db.add(email_config)
+      db.commit()
+      print("邮件配置初始化完成")
+
+    # 初始化默认邮件模板
+    existing_default_tpl = db.query(EmailTemplate).filter(
+      EmailTemplate.is_default == True
+    ).first()
+    if not existing_default_tpl:
+      default_template = EmailTemplate(
+        name="默认通用模板",
+        event_type=None,
+        subject="【云谱】您有 {{days_until}} 项待办提醒",
+        content="""<div>
+  <p style="font-size: 15px; color: #303133;">
+    📌 <strong>{{title}}</strong>
+  </p>
+  <p style="color: #606266; margin: 4px 0;">
+    类型：{{event_type}}
+    {{#if nickname}} · 人物：{{nickname}}{{/if}}
+  </p>
+  <p style="color: #606266; margin: 4px 0;">
+    📅 日期：{{date}}
+    {{#if is_lunar == '是'}}（{{lunar_date}}）{{/if}}
+  </p>
+  <p style="color: #f56c6c; margin: 4px 0;">
+    ⏰ 还有 <strong>{{days_until}}</strong> 天
+  </p>
+  {{#if description}}
+  <p style="color: #909399; margin-top: 8px; padding: 8px; background: #f5f7fa; border-radius: 4px;">
+    {{description}}
+  </p>
+  {{/if}}
+</div>""",
+        is_default=True,
+        is_html=True
+      )
+      db.add(default_template)
+      db.commit()
+      print("默认邮件模板初始化完成")
   finally:
     db.close()
 

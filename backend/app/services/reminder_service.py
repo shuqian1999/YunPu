@@ -1,109 +1,72 @@
-from sqlalchemy.orm import Session
 from datetime import date, timedelta
-from typing import List
+from dateutil.relativedelta import relativedelta
 from app.models.reminder import Reminder
-from app.models.notification import Notification
-from app.models.person import Person
-from app.utils.lunar import LunarConverter
+from app.models.event import Event
+from app.services.lunar_service import LunarService
 
 
-class ReminderService:
-    def __init__(self, db: Session):
-        self.db = db
+def process_due_reminders(db):
+    """
+    每日定时任务：
+    1. 找出当天到期的提醒
+    2. 如果开启了 trans_event，为其创建对应事件
+    3. 如果是周期性提醒，自动将日期推进到下一个周期，并保持启用
+    4. 一次性提醒（once）处理后禁用
+    """
+    today = date.today()
+    converted_count = 0
+    advanced_count = 0
 
-    def check_reminders(self) -> List[Notification]:
-        today = date.today()
-        reminders = self.db.query(Reminder).filter(
-            Reminder.enabled == True
-        ).all()
+    # 找出当天到期且已启用的提醒
+    due_reminders = db.query(Reminder).filter(
+        Reminder.remind_date == today,
+        Reminder.enabled == True
+    ).all()
 
-        notifications = []
+    for reminder in due_reminders:
+        # 1. 转换为事件
+        if reminder.trans_event:
+            event = Event(
+                person_id=reminder.person_id,
+                event_type_id=reminder.event_type_id,
+                title=reminder.title,
+                description=reminder.description,
+                event_date=reminder.remind_date,
+                is_lunar=reminder.is_lunar,
+                location=reminder.location,
+            )
+            db.add(event)
+            converted_count += 1
 
-        for reminder in reminders:
-            remind_date = self._calculate_remind_date(reminder, today)
-            if remind_date == today:
-                notification = self._create_notification(reminder)
-                self.db.add(notification)
-                notifications.append(notification)
+        # 2. 推进到下一个周期
+        if reminder.repeat_type != "once":
+            # 周期性提醒：自动推进日期，保持启用，继续生效
+            next_date = _calculate_next_date(reminder.remind_date, reminder.is_lunar, reminder.repeat_type)
+            reminder.remind_date = next_date
+            advanced_count += 1
+        else:
+            # 一次性提醒：处理完后禁用
+            reminder.enabled = False
 
-                if reminder.repeat_type == "once":
-                    reminder.enabled = False
+        db.commit()
 
-        if notifications:
-            self.db.commit()
+    return {
+        "converted": converted_count,
+        "advanced": advanced_count,
+        "total_processed": len(due_reminders)
+    }
 
-        return notifications
 
-    def _calculate_remind_date(self, reminder: Reminder, today: date) -> date:
-        base_date = reminder.remind_date
-
-        if reminder.is_lunar and LunarConverter.is_lunar_date_available():
-            return self._calculate_lunar_remind_date(base_date, today)
-
-        repeat_type = getattr(reminder, 'repeat_type', 'once')
-        if repeat_type == "once":
-            return base_date
-        elif repeat_type == "yearly":
-            return date(today.year, base_date.month, base_date.day)
-        elif repeat_type == "monthly":
-            day = min(base_date.day, 28)
-            return date(today.year, today.month, day)
-        elif repeat_type == "weekly":
-            weekday = base_date.weekday()
-            days_ahead = weekday - today.weekday()
-            if days_ahead <= 0:
-                days_ahead += 7
-            return today + timedelta(days=days_ahead)
-
-        return base_date
-
-    def _calculate_lunar_remind_date(self, base_date: date, today: date) -> date:
-        lunar_year, lunar_month, lunar_day, is_leap = LunarConverter.solar_to_lunar(base_date)
-
-        solar_date = LunarConverter.lunar_to_solar(today.year, lunar_month, lunar_day, is_leap)
-
-        if solar_date is None:
-            return base_date
-
-        if solar_date < today:
-            solar_date = LunarConverter.lunar_to_solar(today.year + 1, lunar_month, lunar_day, is_leap)
-
-        return solar_date if solar_date else base_date
-
-    def _create_notification(self, reminder: Reminder) -> Notification:
-        content = self._generate_reminder_content(reminder)
-
-        return Notification(
-            type="reminder",
-            title=reminder.title,
-            content=content,
-            related_id=reminder.id
-        )
-
-    def _generate_reminder_content(self, reminder: Reminder) -> str:
-        content_parts = []
-
-        if reminder.person_id:
-            person = self.db.query(Person).filter(
-                Person.id == reminder.person_id
-            ).first()
-            if person:
-                name = person.nickname or f"{person.first_name or ''}{person.last_name or ''}".strip()
-                if name:
-                    content_parts.append(f"人物：{name}")
-
-        if reminder.is_lunar:
-            content_parts.append("农历")
-
-        repeat_type = getattr(reminder, 'repeat_type', 'once')
-        if repeat_type != "once":
-            repeat_map = {
-                "yearly": "每年",
-                "monthly": "每月",
-                "weekly": "每周"
-            }
-            repeat_text = repeat_map.get(repeat_type, "")
-            if repeat_text:
-                content_parts.append(repeat_text)
-
-        return "，".join(content_parts) if content_parts else "提醒"
+def _calculate_next_date(current: date, is_lunar: bool, repeat_type: str) -> date:
+    """计算下一个周期的日期"""
+    if repeat_type == "yearly":
+        if is_lunar:
+            return LunarService.get_next_lunar_year_date(current)
+        else:
+            return current + relativedelta(years=1)
+    elif repeat_type == "monthly":
+        return current + relativedelta(months=1)
+    elif repeat_type == "weekly":
+        return current + timedelta(weeks=1)
+    else:
+        return current

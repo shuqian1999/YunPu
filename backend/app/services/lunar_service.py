@@ -3,7 +3,7 @@
 
 使用 lunar-python 库进行农历和公历日期的互转
 """
-from datetime import date, datetime
+from datetime import date, datetime, timedelta
 from typing import Optional, Dict
 
 try:
@@ -171,6 +171,20 @@ class LunarService:
         except Exception as e:
             print(f"获取下一个农历生日失败: {e}")
             return None
+
+    @staticmethod
+    def get_next_lunar_year_date(stored_date: date) -> date:
+        """
+        获取下一个农历年的同月同日（数据库中存储的"农历日期"字符串日期）
+        用于提醒的"每年"重复场景，年份+1即可
+        """
+        if not stored_date:
+            return None
+        try:
+            return stored_date.replace(year=stored_date.year + 1)
+        except ValueError:
+            # 处理 2月29日 这类特殊日期
+            return stored_date + timedelta(days=365)
 
     @staticmethod
     def get_solar_display_date(stored_date: date, is_lunar: bool) -> str:

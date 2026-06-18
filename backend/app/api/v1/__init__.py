@@ -14,6 +14,7 @@ from app.api.v1.groups import router as groups_router
 from app.api.v1.search import router as search_router
 from app.api.v1.notifications import router as notifications_router
 from app.api.v1.lunar import router as lunar_router
+from app.api.v1.email import router as email_router
 
 api_router = APIRouter()
 api_router.include_router(auth_router)
@@ -30,3 +31,4 @@ api_router.include_router(groups_router)
 api_router.include_router(search_router)
 api_router.include_router(notifications_router)
 api_router.include_router(lunar_router)
+api_router.include_router(email_router)

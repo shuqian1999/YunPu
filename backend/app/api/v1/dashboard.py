@@ -76,12 +76,13 @@ def get_dashboard_reminders(
 ):
     start_date = datetime.now().date()
     end_date = start_date + timedelta(days=days)
-    
+
     reminders = db.query(Reminder).filter(
+        Reminder.enabled == True,
         Reminder.remind_date >= start_date,
         Reminder.remind_date <= end_date
     ).order_by(Reminder.remind_date.asc()).all()
-    
+
     result = []
     for reminder in reminders:
         person_name = None
@@ -90,15 +91,22 @@ def get_dashboard_reminders(
                 person_name = f"{reminder.person.last_name or ''}{reminder.person.first_name or ''}"
             elif reminder.person.nickname:
                 person_name = reminder.person.nickname
-        
+
         result.append({
             "id": reminder.id,
             "title": reminder.title,
+            "description": reminder.description,
             "remind_date": reminder.remind_date.isoformat(),
             "is_lunar": reminder.is_lunar,
             "display_date": LunarService.get_solar_display_date(reminder.remind_date, reminder.is_lunar),
+            "event_type_id": reminder.event_type_id,
+            "event_type": reminder.event_type.name if reminder.event_type else "提醒",
+            "event_type_color": reminder.event_type.color if reminder.event_type else "#c0c4cc",
+            "repeat_type": reminder.repeat_type,
+            "remind_advance_days": reminder.remind_advance_days,
+            "trans_event": reminder.trans_event,
             "person_id": reminder.person_id,
             "person_name": person_name
         })
-    
+
     return result

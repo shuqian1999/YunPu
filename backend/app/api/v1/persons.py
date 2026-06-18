@@ -89,22 +89,23 @@ def get_person_reminders(
     db: Session = Depends(get_db)
 ):
     from app.models.reminder import Reminder
-    
+
     reminders = db.query(Reminder).filter(
         Reminder.person_id == person_id
     ).order_by(Reminder.remind_date.asc()).all()
-    
-    return [
-        {
-            "id": reminder.id,
-            "title": reminder.title,
-            "remind_date": reminder.remind_date.isoformat(),
-            "is_lunar": reminder.is_lunar,
-            "display_date": LunarService.get_solar_display_date(reminder.remind_date, reminder.is_lunar),
-            "enabled": reminder.enabled
-        }
-        for reminder in reminders
-    ]
+
+    result = []
+    for r in reminders:
+        item = r.to_dict()
+        item["display_date"] = LunarService.get_solar_display_date(r.remind_date, r.is_lunar)
+        if r.event_type:
+            item["event_type"] = r.event_type.name
+            item["event_type_color"] = r.event_type.color
+        else:
+            item["event_type"] = "提醒"
+            item["event_type_color"] = "#c0c4cc"
+        result.append(item)
+    return result
 
 
 @router.get("/{person_id}/relations")
