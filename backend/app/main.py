@@ -107,9 +107,7 @@ def startup_event():
         send_time="08:00",
         enabled=False,
         advance_days=7,
-        reminder_types="生日,纪念日",
-        include_events=True,
-        include_reminders=True
+        reminder_types="生日,纪念日"
       )
       db.add(email_config)
       db.commit()
@@ -123,25 +121,31 @@ def startup_event():
       default_template = EmailTemplate(
         name="默认通用模板",
         event_type=None,
-        subject="【云谱】您有 {{days_until}} 项待办提醒",
-        content="""<div>
-  <p style="font-size: 15px; color: #303133;">
+        subject="【云谱】{{title}} - 还有 {{days_until}} 天",
+        content="""<div style="font-family: 'Microsoft YaHei', Arial, sans-serif;">
+  <p style="font-size: 16px; color: #303133; margin: 0 0 8px 0;">
     📌 <strong>{{title}}</strong>
+    <span style="background: {{event_type_color}}; color: #fff; padding: 1px 8px; border-radius: 3px; font-size: 12px; margin-left: 8px;">{{event_type}}</span>
   </p>
   <p style="color: #606266; margin: 4px 0;">
-    类型：{{event_type}}
-    {{#if nickname}} · 人物：{{nickname}}{{/if}}
+    人物：{{nickname}} {{name}}
   </p>
   <p style="color: #606266; margin: 4px 0;">
     📅 日期：{{date}}
-    {{#if is_lunar == '是'}}（{{lunar_date}}）{{/if}}
+    <span style="background: #e6a23c; color: #fff; padding: 1px 6px; border-radius: 3px; font-size: 11px; margin-left: 4px;">{{repeat_type}}</span>
+    <span style="background: #909399; color: #fff; padding: 1px 6px; border-radius: 3px; font-size: 11px; margin-left: 4px;">{{is_lunar}}</span>
   </p>
   <p style="color: #f56c6c; margin: 4px 0;">
     ⏰ 还有 <strong>{{days_until}}</strong> 天
   </p>
   {{#if description}}
-  <p style="color: #909399; margin-top: 8px; padding: 8px; background: #f5f7fa; border-radius: 4px;">
+  <p style="color: #909399; margin-top: 8px; padding: 8px; background: #f5f7fa; border-radius: 4px; font-size: 13px;">
     {{description}}
+  </p>
+  {{/if}}
+  {{#if location}}
+  <p style="color: #909399; font-size: 13px; margin: 4px 0;">
+    📍 {{location}}
   </p>
   {{/if}}
 </div>""",

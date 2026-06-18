@@ -186,11 +186,6 @@
               <span class="form-hint">多个用英文逗号分隔，留空表示全部类型</span>
             </el-form-item>
 
-            <el-form-item label="包含项">
-              <el-checkbox v-model="emailForm.include_events">事件</el-checkbox>
-              <el-checkbox v-model="emailForm.include_reminders">提醒</el-checkbox>
-            </el-form-item>
-
             <el-form-item>
               <el-button type="primary" :loading="savingEmail" @click="handleSaveEmailConfig">
                 保存配置
@@ -505,9 +500,7 @@ const emailForm = reactive({
   send_time: '08:00',
   enabled: false,
   advance_days: 7,
-  reminder_types: [],
-  include_events: true,
-  include_reminders: true
+  reminder_types: []
 })
 const sendTimeDate = ref('08:00')
 const reminderTypesText = ref('')
@@ -572,9 +565,7 @@ const loadEmailConfig = async () => {
       send_time: config.send_time || '08:00',
       enabled: !!config.enabled,
       advance_days: config.advance_days ?? 7,
-      reminder_types: config.reminder_types || [],
-      include_events: config.include_events !== false,
-      include_reminders: config.include_reminders !== false
+      reminder_types: config.reminder_types || []
     })
     sendTimeDate.value = emailForm.send_time
     reminderTypesText.value = (emailForm.reminder_types || []).join(',')
@@ -602,9 +593,7 @@ const handleSaveEmailConfig = async () => {
       send_time: emailForm.send_time,
       enabled: emailForm.enabled,
       advance_days: emailForm.advance_days,
-      reminder_types: emailForm.reminder_types,
-      include_events: emailForm.include_events,
-      include_reminders: emailForm.include_reminders
+      reminder_types: emailForm.reminder_types
     })
     ElMessage.success('配置已保存')
     emailForm.password = ''

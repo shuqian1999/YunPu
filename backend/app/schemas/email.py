@@ -1,4 +1,4 @@
-from pydantic import BaseModel, Field, EmailStr
+from pydantic import BaseModel, Field
 from typing import List, Optional
 from datetime import datetime
 
@@ -14,8 +14,6 @@ class EmailConfigBase(BaseModel):
     enabled: bool = False
     advance_days: int = Field(7, ge=0, le=30)
     reminder_types: List[str] = Field(default_factory=list)
-    include_events: bool = True
-    include_reminders: bool = True
 
 
 class EmailConfigUpdate(BaseModel):
@@ -29,8 +27,6 @@ class EmailConfigUpdate(BaseModel):
     enabled: Optional[bool] = None
     advance_days: Optional[int] = Field(None, ge=0, le=30)
     reminder_types: Optional[List[str]] = None
-    include_events: Optional[bool] = None
-    include_reminders: Optional[bool] = None
 
 
 class EmailConfigResponse(BaseModel):
@@ -44,8 +40,6 @@ class EmailConfigResponse(BaseModel):
     enabled: bool
     advance_days: int
     reminder_types: List[str] = Field(default_factory=list)
-    include_events: bool
-    include_reminders: bool
     password: Optional[str] = None
     password_set: bool = False
     updated_at: Optional[str] = None
@@ -59,8 +53,6 @@ class EmailTestRequest(BaseModel):
 class EmailSendNowRequest(BaseModel):
     days: Optional[int] = None
     types: Optional[List[str]] = None
-    include_events: Optional[bool] = None
-    include_reminders: Optional[bool] = None
 
 
 class EmailTemplateBase(BaseModel):

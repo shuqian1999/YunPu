@@ -27,8 +27,6 @@ class EmailConfig(Base):
     # 提醒范围
     advance_days = Column(Integer, default=7)        # 提前多少天提醒（0-30）
     reminder_types = Column(Text, nullable=True)     # 启用的提醒类型名称，逗号分隔，如：生日,纪念日
-    include_events = Column(Boolean, default=True)   # 是否包含事件
-    include_reminders = Column(Boolean, default=True)  # 是否包含提醒
 
     updated_at = Column(DateTime(timezone=True), onupdate=func.now())
     created_at = Column(DateTime(timezone=True), server_default=func.now())
@@ -45,8 +43,6 @@ class EmailConfig(Base):
             "enabled": self.enabled,
             "advance_days": self.advance_days,
             "reminder_types": [t.strip() for t in (self.reminder_types or "").split(",") if t.strip()],
-            "include_events": self.include_events,
-            "include_reminders": self.include_reminders,
             "updated_at": self.updated_at.isoformat() if self.updated_at else None,
             "created_at": self.created_at.isoformat() if self.created_at else None,
         }

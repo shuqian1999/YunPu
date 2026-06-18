@@ -83,8 +83,6 @@ def send_now(
     success, message = service.send_reminder_email(
         days=payload.days,
         types=payload.types,
-        include_events=payload.include_events,
-        include_reminders=payload.include_reminders,
     )
     if not success:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=message)
@@ -144,7 +142,6 @@ def delete_template(template_id: int, db: Session = Depends(get_db)):
 @router.post("/templates/{template_id}/preview")
 def preview_template(
     template_id: int,
-    sample_type: str = "event",
     db: Session = Depends(get_db),
 ):
     """使用示例数据预览模板"""
@@ -153,18 +150,22 @@ def preview_template(
     if not template:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="模板不存在")
 
-    # 示例数据
+    # 示例数据（基于 Reminder 字段）
     sample_data = {
-        "title": "生日",
-        "name": "张三",
-        "nickname": "小明",
+        "title": "妈妈生日",
+        "name": "李四",
+        "nickname": "妈妈",
         "date": "2026年06月20日",
         "days_until": 3,
         "event_type": "生日",
-        "description": "庆祝张三的生日",
-        "location": "家",
+        "event_type_color": "#67c23a",
+        "description": "记得给妈妈准备生日礼物",
+        "location": "家里",
+        "repeat_type": "每年",
         "is_lunar": "否",
         "lunar_date": "",
+        "advance_days": 0,
+        "trans_event": "是",
     }
 
     subject = service.render_template(template.subject, sample_data)

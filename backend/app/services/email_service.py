@@ -1,7 +1,6 @@
 """邮件发送服务"""
 import smtplib
 import logging
-import re
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
 from email.header import Header
@@ -11,27 +10,29 @@ from typing import List, Dict, Optional, Tuple
 from sqlalchemy.orm import Session
 
 from app.models.email import EmailConfig, EmailTemplate, EmailLog
-from app.models.event import Event
 from app.models.reminder import Reminder
 from app.models.person import Person
-from app.models.event_type import EventType
 from app.utils.lunar import LunarConverter
 
 logger = logging.getLogger(__name__)
 
 
-# 模板可用的变量
+# 模板可用的变量（针对 Reminder 字段）
 TEMPLATE_VARIABLES = [
-    ("{{title}}", "事件/提醒标题"),
+    ("{{title}}", "提醒标题"),
     ("{{name}}", "人物姓名"),
     ("{{nickname}}", "人物称呼"),
-    ("{{date}}", "事件/提醒日期（公历）"),
+    ("{{date}}", "提醒日期（公历）"),
     ("{{days_until}}", "距离天数"),
-    ("{{event_type}}", "事件类型"),
-    ("{{description}}", "事件描述"),
-    ("{{location}}", "事件地点"),
+    ("{{event_type}}", "提醒类型（生日/纪念日等）"),
+    ("{{event_type_color}}", "提醒类型颜色"),
+    ("{{description}}", "提醒描述"),
+    ("{{location}}", "提醒地点"),
+    ("{{repeat_type}}", "周期类型（不重复/每年/每月/每周）"),
     ("{{is_lunar}}", "是否农历"),
     ("{{lunar_date}}", "农历日期"),
+    ("{{advance_days}}", "提前提醒天数"),
+    ("{{trans_event}}", "是否到期转事件"),
 ]
 
 
@@ -71,7 +72,9 @@ class EmailService:
         ).first()
 
     def get_template_for_type(self, event_type: str) -> Optional[EmailTemplate]:
-        """根据事件类型获取模板，优先匹配专用模板，其次默认模板"""
+        """根据提醒类型获取模板，优先匹配专用模板，其次默认模板"""
+        if not event_type:
+            return self.get_default_template()
         template = self.db.query(EmailTemplate).filter(
             EmailTemplate.event_type == event_type
         ).first()
@@ -130,35 +133,9 @@ class EmailService:
             result = result.replace(placeholder, str(value if value is not None else ""))
         return result
 
-    def build_event_variables(self, event: Event, person: Optional[Person],
-                              days_until: int) -> dict:
-        event_date = event.event_date
-        is_lunar = bool(getattr(event, "is_lunar", False))
-        lunar_text = LunarConverter.get_lunar_string(event_date) if is_lunar else ""
-
-        name = ""
-        nickname = ""
-        if person:
-            nickname = person.nickname or ""
-            last = person.last_name or ""
-            first = person.first_name or ""
-            name = (last + first) or nickname
-
-        return {
-            "title": event.title or "",
-            "name": name,
-            "nickname": nickname,
-            "date": event_date.strftime("%Y年%m月%d日") if event_date else "",
-            "days_until": days_until,
-            "event_type": event.event_type.name if event.event_type else "其他",
-            "description": event.description or "",
-            "location": event.location or "",
-            "is_lunar": "是" if is_lunar else "否",
-            "lunar_date": lunar_text,
-        }
-
     def build_reminder_variables(self, reminder: Reminder, person: Optional[Person],
                                  days_until: int) -> dict:
+        """构建 Reminder 的模板变量（包含所有对齐字段）"""
         remind_date = reminder.remind_date
         is_lunar = bool(getattr(reminder, "is_lunar", False))
         lunar_text = LunarConverter.get_lunar_string(remind_date) if is_lunar else ""
@@ -171,110 +148,86 @@ class EmailService:
             first = person.first_name or ""
             name = (last + first) or nickname
 
+        # 周期类型中文标签
+        repeat_type_map = {
+            "once": "不重复",
+            "yearly": "每年",
+            "monthly": "每月",
+            "weekly": "每周",
+        }
+        repeat_type_label = repeat_type_map.get(reminder.repeat_type or "once", "")
+
+        # 事件类型
+        et_name = ""
+        et_color = "#c0c4cc"
+        if reminder.event_type:
+            et_name = reminder.event_type.name
+            et_color = reminder.event_type.color or "#c0c4cc"
+
         return {
             "title": reminder.title or "",
             "name": name,
             "nickname": nickname,
             "date": remind_date.strftime("%Y年%m月%d日") if remind_date else "",
             "days_until": days_until,
-            "event_type": "提醒",
-            "description": "",
-            "location": "",
+            "event_type": et_name,
+            "event_type_color": et_color,
+            "description": reminder.description or "",
+            "location": reminder.location or "",
+            "repeat_type": repeat_type_label,
             "is_lunar": "是" if is_lunar else "否",
             "lunar_date": lunar_text,
+            "advance_days": reminder.remind_advance_days or 0,
+            "trans_event": "是" if getattr(reminder, "trans_event", False) else "否",
         }
 
     # ---------- 数据收集 ----------
-    def get_upcoming_items(self, days: int, types: List[str],
-                            include_events: bool, include_reminders: bool
-                            ) -> Tuple[List[dict], List[dict]]:
-        """获取指定天数内的未来事件和提醒
+    def get_upcoming_reminders(self, days: int, types: List[str]) -> List[dict]:
+        """获取指定天数内的未来提醒
 
         Returns:
-            (events_data, reminders_data)
+            reminders_data 列表，每项包含 reminder/person/actual_date/days_until
         """
         today = date.today()
         end_date = today + timedelta(days=days)
-        type_set = set(types or [])
+        type_set = set(t.strip() for t in (types or []) if t.strip())
 
-        events_data = []
+        reminders = self.db.query(Reminder).filter(Reminder.enabled == True).all()
         reminders_data = []
 
-        if include_events:
-            events = self.db.query(Event).all()
-            for event in events:
-                event_date = self._calculate_event_actual_date(event, today)
-                if event_date is None:
-                    continue
-                if not (today <= event_date <= end_date):
-                    continue
-                # 类型过滤
-                et_name = event.event_type.name if event.event_type else "其他"
-                if type_set and et_name not in type_set:
-                    continue
-                days_until = (event_date - today).days
-                person = None
-                if event.person_id:
-                    person = self.db.query(Person).filter(
-                        Person.id == event.person_id
-                    ).first()
-                events_data.append({
-                    "event": event,
-                    "person": person,
-                    "actual_date": event_date,
-                    "days_until": days_until,
-                })
+        for reminder in reminders:
+            actual_date = self._calculate_reminder_actual_date(reminder, today)
+            if actual_date is None:
+                continue
+            if not (today <= actual_date <= end_date):
+                continue
 
-        if include_reminders:
-            reminders = self.db.query(Reminder).filter(Reminder.enabled == True).all()
-            for reminder in reminders:
-                actual_date = self._calculate_reminder_actual_date(reminder, today)
-                if actual_date is None:
-                    continue
-                if not (today <= actual_date <= end_date):
-                    continue
-                days_until = (actual_date - today).days
-                person = None
-                if reminder.person_id:
-                    person = self.db.query(Person).filter(
-                        Person.id == reminder.person_id
-                    ).first()
-                # 提醒根据关联事件类型或自定义类型筛选
-                # 这里假设所有提醒都参与发送
-                if type_set and "提醒" not in type_set and "其他" not in type_set:
-                    # 简化：提醒只要 enable 都发送
-                    pass
-                reminders_data.append({
-                    "reminder": reminder,
-                    "person": person,
-                    "actual_date": actual_date,
-                    "days_until": days_until,
-                })
+            # 类型过滤：reminder 的 event_type 必须匹配
+            et_name = reminder.event_type.name if reminder.event_type else ""
+            if type_set and et_name and et_name not in type_set:
+                continue
+            # 如果 reminder 没有类型但 type_set 也不空，仍跳过
+            if type_set and not et_name:
+                continue
 
-        # 按日期排序
-        events_data.sort(key=lambda x: x["actual_date"])
+            days_until = (actual_date - today).days
+            person = None
+            if reminder.person_id:
+                person = self.db.query(Person).filter(
+                    Person.id == reminder.person_id
+                ).first()
+            reminders_data.append({
+                "reminder": reminder,
+                "person": person,
+                "actual_date": actual_date,
+                "days_until": days_until,
+            })
+
         reminders_data.sort(key=lambda x: x["actual_date"])
-
-        return events_data, reminders_data
-
-    def _calculate_event_actual_date(self, event: Event, today: date) -> Optional[date]:
-        """计算事件实际触发的公历日期"""
-        base = event.event_date
-        is_lunar = bool(getattr(event, "is_lunar", False))
-        if is_lunar and LunarConverter.is_lunar_date_available():
-            try:
-                _, lm, ld, is_leap = LunarConverter.solar_to_lunar(base)
-                solar = LunarConverter.lunar_to_solar(today.year, lm, ld, is_leap)
-                if solar is None:
-                    return None
-                if solar < today:
-                    solar = LunarConverter.lunar_to_solar(today.year + 1, lm, ld, is_leap)
-                return solar
-            except Exception:
-                return base
-        return base
+        return reminders_data
 
     def _calculate_reminder_actual_date(self, reminder: Reminder, today: date) -> Optional[date]:
+        """计算提醒实际触发的公历日期"""
         base = reminder.remind_date
         is_lunar = bool(getattr(reminder, "is_lunar", False))
         repeat_type = getattr(reminder, "repeat_type", "once")
@@ -294,7 +247,11 @@ class EmailService:
         if repeat_type == "once":
             return base if base >= today else None
         elif repeat_type == "yearly":
-            return date(today.year, base.month, base.day)
+            try:
+                return date(today.year, base.month, base.day)
+            except ValueError:
+                # 2月29日特殊处理
+                return date(today.year, 2, 28)
         elif repeat_type == "monthly":
             day = min(base.day, 28)
             return date(today.year, today.month, day)
@@ -307,8 +264,7 @@ class EmailService:
         return None
 
     # ---------- 邮件内容生成 ----------
-    def build_email_content(self, events_data: List[dict],
-                            reminders_data: List[dict]) -> Tuple[str, str]:
+    def build_email_content(self, reminders_data: List[dict]) -> Tuple[str, str]:
         """根据默认/分类型模板生成邮件主题和正文
 
         Returns:
@@ -316,52 +272,37 @@ class EmailService:
         """
         default_template = self.get_default_template()
         if not default_template:
-            # 使用内置默认模板
-            subject, body = self._build_default_email(events_data, reminders_data)
-            return subject, body
+            return self._build_default_email(reminders_data)
 
         subject = default_template.subject
         items_html = []
 
-        for ed in events_data:
-            event = ed["event"]
-            et_name = event.event_type.name if event.event_type else "其他"
-            template = self.get_template_for_type(et_name) or default_template
-            variables = self.build_event_variables(
-                event, ed.get("person"), ed["days_until"]
-            )
-            subject_rendered = self.render_template(template.subject, variables)
-            content_rendered = self.render_template(template.content, variables)
-            items_html.append(f"""
-                <div style="margin-bottom: 16px; padding: 12px; border-left: 3px solid #409EFF; background: #f7f8fa; border-radius: 4px;">
-                    {content_rendered}
-                </div>
-            """)
-            # 使用第一个事件的主题作为邮件主题
-            if ed == events_data[0] and not reminders_data:
-                subject = subject_rendered
-
         for rd in reminders_data:
             reminder = rd["reminder"]
-            template = self.get_template_for_type("提醒") or default_template
+            et_name = reminder.event_type.name if reminder.event_type else ""
+            template = self.get_template_for_type(et_name) or default_template
             variables = self.build_reminder_variables(
                 reminder, rd.get("person"), rd["days_until"]
             )
             subject_rendered = self.render_template(template.subject, variables)
             content_rendered = self.render_template(template.content, variables)
+
+            # 彩色左边条
+            et_color = reminder.event_type.color if reminder.event_type else "#c0c4cc"
             items_html.append(f"""
-                <div style="margin-bottom: 16px; padding: 12px; border-left: 3px solid #e6a23c; background: #fdf6ec; border-radius: 4px;">
+                <div style="margin-bottom: 16px; padding: 12px; border-left: 3px solid {et_color}; background: #f7f8fa; border-radius: 4px;">
                     {content_rendered}
                 </div>
             """)
-            if rd == reminders_data[0] and not events_data:
+            # 使用第一个提醒的主题作为邮件主题
+            if rd == reminders_data[0]:
                 subject = subject_rendered
 
         full_html = f"""
         <html>
         <body style="font-family: 'Microsoft YaHei', Arial, sans-serif; line-height: 1.6; color: #333; max-width: 800px; margin: 0 auto; padding: 20px;">
             <h2 style="color: #303133; border-bottom: 2px solid #409EFF; padding-bottom: 10px;">📅 提醒通知</h2>
-            <p style="color: #909399;">您有 {len(events_data) + len(reminders_data)} 项需要关注的事务：</p>
+            <p style="color: #909399;">您有 {len(reminders_data)} 项需要关注的事务：</p>
             {''.join(items_html)}
             <hr style="margin-top: 30px; border: none; border-top: 1px solid #ebeef5;"/>
             <p style="color: #909399; font-size: 12px; text-align: center;">本邮件由 云谱 自动发送</p>
@@ -370,61 +311,53 @@ class EmailService:
         """
         return subject, full_html
 
-    def _build_default_email(self, events_data: List[dict],
-                             reminders_data: List[dict]) -> Tuple[str, str]:
+    def _build_default_email(self, reminders_data: List[dict]) -> Tuple[str, str]:
         """内置默认邮件（无模板时使用）"""
-        subject = f"📅 您有 {len(events_data) + len(reminders_data)} 项提醒"
+        subject = f"📅 您有 {len(reminders_data)} 项提醒"
         rows = []
-        for ed in events_data:
-            event = ed["event"]
-            et_name = event.event_type.name if event.event_type else "其他"
-            et_color = event.event_type.color if event.event_type else "#c0c4cc"
+        for rd in reminders_data:
+            reminder = rd["reminder"]
+            et_name = reminder.event_type.name if reminder.event_type else "提醒"
+            et_color = reminder.event_type.color if reminder.event_type else "#c0c4cc"
             person_name = ""
-            if ed.get("person"):
-                p = ed["person"]
+            if rd.get("person"):
+                p = rd["person"]
                 person_name = p.nickname or f"{p.last_name or ''}{p.first_name or ''}"
-            date_text = ed["actual_date"].strftime("%Y年%m月%d日")
+
+            date_text = rd["actual_date"].strftime("%Y年%m月%d日")
             lunar_tag = ""
-            if getattr(event, "is_lunar", False):
+            if getattr(reminder, "is_lunar", False):
                 lunar_tag = '<span style="background:#e6a23c;color:#fff;padding:1px 6px;border-radius:3px;font-size:11px;margin-left:4px;">农历</span>'
+
+            repeat_tag = ""
+            repeat_type = getattr(reminder, "repeat_type", "once")
+            if repeat_type and repeat_type != "once":
+                repeat_map = {"yearly": "每年", "monthly": "每月", "weekly": "每周"}
+                label = repeat_map.get(repeat_type, "")
+                if label:
+                    repeat_tag = f'<span style="background:#909399;color:#fff;padding:1px 6px;border-radius:3px;font-size:11px;margin-left:4px;">{label}</span>'
+
+            description_html = ""
+            if reminder.description:
+                description_html = f'<div style="color:#909399;font-size:12px;margin-top:4px;">{reminder.description}</div>'
+
+            location_html = ""
+            if reminder.location:
+                location_html = f'<div style="color:#909399;font-size:12px;">📍 {reminder.location}</div>'
+
             rows.append(f"""
                 <tr>
                     <td style="padding: 8px; border-bottom: 1px solid #ebeef5;">
                         <span style="background:{et_color};color:#fff;padding:2px 8px;border-radius:3px;font-size:12px;">{et_name}</span>
                     </td>
                     <td style="padding: 8px; border-bottom: 1px solid #ebeef5;">
-                        <strong>{event.title}</strong>
-                        {f'<div style="color:#909399;font-size:12px;">{person_name}</div>' if person_name else ''}
-                    </td>
-                    <td style="padding: 8px; border-bottom: 1px solid #ebeef5;">
-                        {date_text}{lunar_tag}
-                    </td>
-                    <td style="padding: 8px; border-bottom: 1px solid #ebeef5; color: #f56c6c;">
-                        {ed['days_until']} 天后
-                    </td>
-                </tr>
-            """)
-        for rd in reminders_data:
-            reminder = rd["reminder"]
-            person_name = ""
-            if rd.get("person"):
-                p = rd["person"]
-                person_name = p.nickname or f"{p.last_name or ''}{p.first_name or ''}"
-            date_text = rd["actual_date"].strftime("%Y年%m月%d日")
-            lunar_tag = ""
-            if getattr(reminder, "is_lunar", False):
-                lunar_tag = '<span style="background:#e6a23c;color:#fff;padding:1px 6px;border-radius:3px;font-size:11px;margin-left:4px;">农历</span>'
-            rows.append(f"""
-                <tr>
-                    <td style="padding: 8px; border-bottom: 1px solid #ebeef5;">
-                        <span style="background:#909399;color:#fff;padding:2px 8px;border-radius:3px;font-size:12px;">提醒</span>
-                    </td>
-                    <td style="padding: 8px; border-bottom: 1px solid #ebeef5;">
                         <strong>{reminder.title}</strong>
                         {f'<div style="color:#909399;font-size:12px;">{person_name}</div>' if person_name else ''}
+                        {description_html}
+                        {location_html}
                     </td>
                     <td style="padding: 8px; border-bottom: 1px solid #ebeef5;">
-                        {date_text}{lunar_tag}
+                        {date_text}{lunar_tag}{repeat_tag}
                     </td>
                     <td style="padding: 8px; border-bottom: 1px solid #ebeef5; color: #f56c6c;">
                         {rd['days_until']} 天后
@@ -435,7 +368,7 @@ class EmailService:
         <html>
         <body style="font-family: 'Microsoft YaHei', Arial, sans-serif; line-height: 1.6; color: #333; max-width: 800px; margin: 0 auto; padding: 20px;">
             <h2 style="color: #303133; border-bottom: 2px solid #409EFF; padding-bottom: 10px;">📅 云谱提醒</h2>
-            <p>您有 {len(events_data) + len(reminders_data)} 项需要关注：</p>
+            <p>您有 {len(reminders_data)} 项需要关注：</p>
             <table style="width:100%; border-collapse: collapse; margin: 16px 0;">
                 <thead>
                     <tr style="background: #f5f7fa;">
@@ -459,11 +392,7 @@ class EmailService:
     def send_email(self, subject: str, content: str,
                    receivers: List[str], is_html: bool = True,
                    preview: Optional[str] = None) -> Tuple[bool, str, int]:
-        """发送邮件
-
-        Returns:
-            (success, error_message, related_count)
-        """
+        """发送邮件"""
         config = self.get_config()
         if not config or not config.smtp_host or not config.username or not config.password:
             return False, "邮件配置不完整", 0
@@ -489,7 +418,6 @@ class EmailService:
             server.sendmail(config.username, receivers, msg.as_string())
             server.quit()
 
-            # 记录日志
             preview_text = preview or content[:200] if content else ""
             log = EmailLog(
                 subject=subject,
@@ -515,9 +443,7 @@ class EmailService:
             return False, str(e), 0
 
     def send_reminder_email(self, days: Optional[int] = None,
-                            types: Optional[List[str]] = None,
-                            include_events: Optional[bool] = None,
-                            include_reminders: Optional[bool] = None
+                            types: Optional[List[str]] = None
                             ) -> Tuple[bool, str]:
         """发送提醒邮件（用于定时任务或手动触发）"""
         config = self.get_config()
@@ -528,23 +454,19 @@ class EmailService:
 
         days = days if days is not None else config.advance_days
         types = types if types is not None else config.reminder_types
-        inc_events = include_events if include_events is not None else config.include_events
-        inc_reminders = include_reminders if include_reminders is not None else config.include_reminders
 
-        events_data, reminders_data = self.get_upcoming_items(
-            days, types, inc_events, inc_reminders
-        )
+        reminders_data = self.get_upcoming_reminders(days, types)
 
-        if not events_data and not reminders_data:
+        if not reminders_data:
             return True, "指定范围内没有需要提醒的事项"
 
-        subject, body = self.build_email_content(events_data, reminders_data)
+        subject, body = self.build_email_content(reminders_data)
         receivers = [r.strip() for r in config.receivers.split(",") if r.strip()]
 
-        preview = f"{len(events_data)} 个事件，{len(reminders_data)} 个提醒"
+        preview = f"{len(reminders_data)} 个提醒"
         success, error, _ = self.send_email(subject, body, receivers, preview=preview)
         if success:
-            return True, f"已发送 {len(events_data) + len(reminders_data)} 项提醒"
+            return True, f"已发送 {len(reminders_data)} 项提醒"
         return False, error
 
     def test_connection(self) -> Tuple[bool, str]:
