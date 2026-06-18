@@ -131,14 +131,16 @@
           >
             <div class="person-option">
               <el-avatar :size="32" :src="person.avatar_url">
-                {{ person.nickname || person.first_name || '?' }}
+                {{ getPersonInitial(person) }}
               </el-avatar>
-              <span class="person-name">{{ person.last_name }}{{ person.first_name }}</span>
-              <span v-if="person.nickname" class="person-nickname">({{ person.nickname }})</span>
+              <span class="person-name">{{ getPersonDisplayName(person) }}</span>
+              <span v-if="getPersonSecondaryName(person)" class="person-nickname">
+                ({{ getPersonSecondaryName(person) }})
+              </span>
             </div>
           </el-checkbox>
         </el-checkbox-group>
-        
+
         <el-empty v-if="filteredPersons.length === 0" description="没有可用的人物" />
       </div>
       
@@ -193,12 +195,33 @@ const addingMembers = ref(false)
 const filteredPersons = computed(() => {
   if (!memberSearchQuery.value) return persons.value
   const query = memberSearchQuery.value.toLowerCase()
-  return persons.value.filter(p => 
+  return persons.value.filter(p =>
     (p.first_name && p.first_name.toLowerCase().includes(query)) ||
     (p.last_name && p.last_name.toLowerCase().includes(query)) ||
     (p.nickname && p.nickname.toLowerCase().includes(query))
   )
 })
+
+// 优先返回姓名（姓+名），姓名不存在时返回称呼，都没有则返回"未知"
+const getPersonDisplayName = (person) => {
+  const fullName = ((person.last_name || '') + (person.first_name || '')).trim()
+  if (fullName) return fullName
+  return person.nickname || '未知'
+}
+
+// 主显示是姓名时，次显示是称呼；主显示是称呼时，不显示次要信息
+const getPersonSecondaryName = (person) => {
+  const fullName = ((person.last_name || '') + (person.first_name || '')).trim()
+  if (fullName && person.nickname) return person.nickname
+  return ''
+}
+
+// 头像首字符：优先 first_name，其次 nickname
+const getPersonInitial = (person) => {
+  if (person.first_name && person.first_name.trim()) return person.first_name.trim()
+  if (person.nickname && person.nickname.trim()) return person.nickname.trim()
+  return '?'
+}
 
 const loadGroups = async () => {
   loading.value = true

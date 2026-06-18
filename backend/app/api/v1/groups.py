@@ -103,13 +103,16 @@ async def get_group_members(
     
     result = []
     for member, person in members:
+        full_name = f"{person.last_name or ''}{person.first_name or ''}".strip()
+        # 优先显示姓名，姓名不存在时显示称呼
+        display_name = full_name if full_name else (person.nickname or "未知")
         result.append({
             "id": member.id,
             "person_id": person.id,
-            "person_name": f"{person.last_name}{person.first_name}" if person.last_name or person.first_name else "未知",
-            "person_nickname": person.nickname
+            "person_name": display_name,
+            "person_nickname": person.nickname if full_name else None
         })
-    
+
     return result
 
 
