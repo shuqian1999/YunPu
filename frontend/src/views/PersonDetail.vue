@@ -169,7 +169,7 @@
               <span v-if="!isEditing" class="value">{{ personInfo.custom_fields?.notes || '-' }}</span>
               <el-input v-else v-model="editForm.notes" class="edit-textarea" type="textarea" placeholder="请输入备注" :rows="3" />
             </div>
-            <div class="info-row">
+            <div class="info-row info-row-stack">
               <span class="label">自定义字段</span>
               <div v-if="!isEditing" class="value custom-fields-view">
                 <div v-if="customFieldsList.length === 0">暂无自定义字段</div>
@@ -1547,6 +1547,25 @@ const handleToggleReminder = async (reminder) => {
   flex-shrink: 0;
 }
 
+/* 自定义字段行：纵向布局，不被遮挡 */
+.info-row-stack {
+  flex-direction: column;
+  align-items: stretch;
+  gap: 12px;
+}
+
+.info-row-stack .label {
+  width: auto;
+  text-align: left;
+}
+
+.info-row-stack .value,
+.info-row-stack .custom-fields-edit {
+  width: 100%;
+  max-width: none;
+  text-align: left;
+}
+
 .birth-edit-group {
   display: flex;
   align-items: center;
@@ -1604,12 +1623,13 @@ const handleToggleReminder = async (reminder) => {
 }
 
 .custom-fields-edit {
-  max-width: 320px;
+  width: 100%;
   flex: 1;
 }
 
 .custom-field-row {
-  display: flex;
+  display: grid;
+  grid-template-columns: minmax(120px, 1fr) minmax(180px, 2fr) auto;
   gap: 8px;
   align-items: center;
   margin-bottom: 8px;

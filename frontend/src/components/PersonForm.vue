@@ -29,17 +29,6 @@
           <el-radio label="female">女</el-radio>
         </el-radio-group>
       </el-form-item>
-
-      <el-form-item label="出生日期" prop="birth_date">
-        <el-date-picker
-          v-model="form.birth_date"
-          type="date"
-          placeholder="选择出生日期"
-          value-format="YYYY-MM-DD"
-          format="YYYY年M月D日"
-          style="width: 100%"
-        />
-      </el-form-item>
     </el-form>
 
     <template #footer>
@@ -74,8 +63,7 @@ const loading = ref(false)
 const form = ref({
   nickname: '',
   name: '',
-  gender: '',
-  birth_date: ''
+  gender: ''
 })
 
 // 自定义校验：姓名和称呼至少有一个不为空
@@ -111,8 +99,7 @@ const loadPerson = async () => {
     form.value = {
       nickname: data.nickname || '',
       name: data.last_name ? data.last_name + data.first_name : '',
-      gender: data.gender ? genderMap[data.gender] : '',
-      birth_date: data.birth_date || ''
+      gender: data.gender ? genderMap[data.gender] : ''
     }
   } catch (error) {
     ElMessage.error('加载人物信息失败')
@@ -136,8 +123,7 @@ const handleSubmit = async () => {
       nickname: form.value.nickname,
       last_name: last_name,
       first_name: first_name,
-      gender: genderValue,
-      birth_date: form.value.birth_date || null
+      gender: genderValue
     }
 
     if (isEdit.value) {
@@ -168,8 +154,7 @@ const handleClose = () => {
   form.value = {
     nickname: '',
     name: '',
-    gender: '',
-    birth_date: ''
+    gender: ''
   }
   dialogVisible.value = false
 }
