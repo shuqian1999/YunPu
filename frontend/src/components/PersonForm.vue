@@ -11,12 +11,16 @@
       :rules="rules"
       label-width="80px"
     >
+      <el-alert type="info" :closable="false" class="form-tip">
+        姓名与称呼至少填写一项
+      </el-alert>
+
       <el-form-item label="姓名" prop="name">
-        <el-input v-model="form.name" placeholder="请输入姓名，第一个字默认为姓" />
+        <el-input v-model="form.name" placeholder="如：李四、张三" />
       </el-form-item>
 
       <el-form-item label="称呼" prop="nickname">
-        <el-input v-model="form.nickname" placeholder="请输入称呼，如：爸爸、妈妈、小明" />
+        <el-input v-model="form.nickname" placeholder="如：爸爸、妈妈、小明" />
       </el-form-item>
 
       <el-form-item label="性别" prop="gender">
@@ -74,7 +78,21 @@ const form = ref({
   birth_date: ''
 })
 
-const rules = {}
+// 自定义校验：姓名和称呼至少有一个不为空
+const validateNameOrNickname = (rule, value, callback) => {
+  const name = (form.value.name || '').trim()
+  const nickname = (form.value.nickname || '').trim()
+  if (!name && !nickname) {
+    callback(new Error('姓名和称呼至少需要填写一个'))
+  } else {
+    callback()
+  }
+}
+
+const rules = {
+  name: [{ validator: validateNameOrNickname, trigger: 'blur' }],
+  nickname: [{ validator: validateNameOrNickname, trigger: 'blur' }]
+}
 
 
 const dialogVisible = computed({
@@ -131,7 +149,15 @@ const handleSubmit = async () => {
     }
     emit('success')
   } catch (error) {
-    ElMessage.error(isEdit.value ? '更新失败' : '创建失败')
+    const detail = error?.response?.data?.detail
+    let msg = isEdit.value ? '更新失败' : '创建失败'
+    if (typeof detail === 'string') {
+      msg = detail
+    } else if (Array.isArray(detail) && detail.length > 0) {
+      const raw = detail[0]?.msg || msg
+      msg = raw.replace(/^Value error,\s*/i, '')
+    }
+    ElMessage.error(msg)
   } finally {
     loading.value = false
   }
@@ -154,3 +180,19 @@ watch(() => props.visible, (val) => {
   }
 })
 </script>
+
+<style scoped>
+.form-tip {
+  margin-bottom: 16px;
+  padding: 8px 12px;
+}
+
+.form-tip :deep(.el-alert__content) {
+  padding: 0;
+}
+
+.form-tip :deep(.el-alert__title) {
+  font-size: 13px;
+  color: var(--text-regular, #606266);
+}
+</style>

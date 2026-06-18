@@ -611,7 +611,7 @@
           <el-input-number v-model="reminderForm.remind_advance_days" :min="0" :max="30" />
           <span class="form-hint">天（0 = 当天）</span>
         </el-form-item>
-        <el-form-item label="到期转事件">
+        <el-form-item label="事件转换">
           <el-switch v-model="reminderForm.trans_event" />
           <span class="form-hint">开启后，到期会自动生成对应事件（字段对应，无需重复录入）</span>
         </el-form-item>
@@ -867,10 +867,18 @@ const handleDeleteAvatar = async () => {
 }
 
 const saveEdit = async () => {
+  // 校验：姓名和称呼至少有一个不为空
+  const name = (editForm.name || '').trim()
+  const nickname = (editForm.nickname || '').trim()
+  if (!name && !nickname) {
+    ElMessage.error('姓名和称呼至少需要填写一个')
+    return
+  }
+
   saving.value = true
   try {
     const { updatePerson } = await import('@/api/persons')
-    const name = editForm.name || ''
+    const submitName = editForm.name || ''
 
     const custom_fields = {}
     if (editForm.notes) {
@@ -884,8 +892,8 @@ const saveEdit = async () => {
 
     const data = {
       nickname: editForm.nickname || null,
-      last_name: name.charAt(0) || null,
-      first_name: name.slice(1) || null,
+      last_name: submitName.charAt(0) || null,
+      first_name: submitName.slice(1) || null,
       gender: editForm.gender,
       birth_date: editForm.birth_date || null,
       is_lunar_birth: editForm.is_lunar_birth,
