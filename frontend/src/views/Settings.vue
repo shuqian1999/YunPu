@@ -1,5 +1,12 @@
 <template>
-  <div class="settings-container">
+  <div class="page-container">
+    <div class="page-header">
+      <div class="page-header-left">
+        <h2 class="page-title">设置</h2>
+        <span class="page-subtitle">系统配置、邮件通知与个性化</span>
+      </div>
+    </div>
+
     <el-tabs v-model="activeTab" class="settings-tabs">
       <!-- 系统设置 -->
       <el-tab-pane label="系统设置" name="system">
@@ -893,22 +900,18 @@ onMounted(async () => {
 </script>
 
 <style scoped lang="scss">
-.settings-container {
-  padding: 24px;
-  max-width: 1200px;
-  margin: 0 auto;
-}
-
 .settings-tabs {
   background: var(--card-bg, #ffffff);
-  border-radius: 8px;
+  border-radius: 12px;
   padding: 8px 16px 0;
+  border: 1px solid var(--border-color, #dcdfe6);
 }
 
 .settings-card {
-  margin-bottom: 16px;
+  margin-bottom: 20px;
   background: var(--card-bg, #ffffff);
   border: 1px solid var(--border-color, #dcdfe6);
+  border-radius: 12px;
 }
 
 .card-title {

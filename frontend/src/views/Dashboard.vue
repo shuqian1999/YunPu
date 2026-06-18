@@ -1,7 +1,14 @@
 <template>
-  <div class="dashboard-container">
+  <div class="page-container-wide">
+    <div class="page-header">
+      <div class="page-header-left">
+        <h2 class="page-title">仪表盘</h2>
+        <span class="page-subtitle">最近事件和提醒一览</span>
+      </div>
+    </div>
+
     <div class="dashboard-grid">
-      <el-card class="stat-card">
+      <el-card class="page-card stat-card">
         <div class="stat-content">
           <div class="stat-icon person-icon">
             <el-icon><User /></el-icon>
@@ -13,7 +20,7 @@
         </div>
       </el-card>
 
-      <el-card class="stat-card">
+      <el-card class="page-card stat-card">
         <div class="stat-content">
           <div class="stat-icon event-icon">
             <el-icon><Document /></el-icon>
@@ -25,7 +32,7 @@
         </div>
       </el-card>
 
-      <el-card class="stat-card">
+      <el-card class="page-card stat-card">
         <div class="stat-content">
           <div class="stat-icon reminder-icon">
             <el-icon><Bell /></el-icon>
@@ -37,7 +44,7 @@
         </div>
       </el-card>
 
-      <el-card class="events-card">
+      <el-card class="page-card events-card">
         <template #header>
           <div class="card-header">
             <span class="card-title">事件时间轴</span>
@@ -200,7 +207,7 @@
         />
       </el-card>
 
-      <el-card class="reminders-card">
+      <el-card class="page-card reminders-card">
         <template #header>
           <div class="card-header">
             <span class="card-title">最近30天提醒</span>
@@ -407,13 +414,6 @@ onMounted(() => {
 </script>
 
 <style scoped lang="scss">
-.dashboard-container {
-  padding: 24px;
-  max-width: 1400px;
-  margin: 0 auto;
-  box-sizing: border-box;
-}
-
 .dashboard-grid {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
@@ -427,6 +427,7 @@ onMounted(() => {
   :deep(.el-card) {
     background: var(--card-bg, #ffffff);
     border-color: var(--border-color, #dcdfe6);
+    border-radius: 12px;
   }
 
   :deep(.el-card__body) {
@@ -493,6 +494,7 @@ onMounted(() => {
   :deep(.el-card) {
     background: var(--card-bg, #ffffff);
     border-color: var(--border-color, #dcdfe6);
+    border-radius: 12px;
   }
 
   :deep(.el-card__body) {
@@ -511,6 +513,7 @@ onMounted(() => {
   :deep(.el-card) {
     background: var(--card-bg, #ffffff);
     border-color: var(--border-color, #dcdfe6);
+    border-radius: 12px;
   }
 
   :deep(.el-card__body) {
@@ -749,7 +752,7 @@ onMounted(() => {
 
 <!-- 深色模式覆盖样式 -->
 <style lang="scss">
-.dashboard-container {
+.dashboard-grid {
   .stat-card, .events-card, .reminders-card {
     .el-card {
       background: var(--card-bg) !important;

@@ -1,20 +1,26 @@
 <template>
-  <div class="groups-container">
-    <div class="groups-header">
-      <h2 class="page-title">分组管理</h2>
-      <el-button type="primary" @click="handleCreate">
-        <el-icon><Plus /></el-icon>
-        新建分组
-      </el-button>
+  <div class="page-container">
+    <div class="page-header">
+      <div class="page-header-left">
+        <h2 class="page-title">分组管理</h2>
+        <span class="page-subtitle">共 {{ groups.length }} 个分组</span>
+      </div>
+      <div class="page-header-right">
+        <el-button type="primary" @click="handleCreate">
+          <el-icon><Plus /></el-icon>
+          新建分组
+        </el-button>
+      </div>
     </div>
 
     <div v-loading="loading" class="groups-list">
       <el-empty v-if="!loading && groups.length === 0" description="暂无分组" />
-      
+
       <el-card
         v-for="group in groups"
         :key="group.id"
-        class="group-card"
+        class="page-card group-card"
+        shadow="never"
       >
         <div class="group-header">
           <div class="group-info">
@@ -34,7 +40,7 @@
             </el-button>
           </div>
         </div>
-        
+
         <div class="group-members">
           <div class="members-header">
             <span class="members-title">成员列表</span>
@@ -43,7 +49,7 @@
               添加成员
             </el-button>
           </div>
-          
+
           <div v-if="getGroupMembersFromState(group.id).length > 0" class="members-list">
                   <el-tag
                     v-for="member in getGroupMembersFromState(group.id)"
@@ -346,25 +352,6 @@ onMounted(() => {
 </script>
 
 <style scoped lang="scss">
-.groups-container {
-  padding: 24px;
-  max-width: 1400px;
-  margin: 0 auto;
-}
-
-.groups-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 24px;
-}
-
-.page-title {
-  font-size: 24px;
-  font-weight: 500;
-  color: var(--text-primary, #303133);
-}
-
 .groups-list {
   display: flex;
   flex-direction: column;
@@ -372,18 +359,12 @@ onMounted(() => {
 }
 
 .group-card {
-  background: var(--card-bg, #ffffff);
-  border: 1px solid var(--border-color, #dcdfe6);
+  margin-bottom: 0;
+  border-radius: 12px;
+}
 
-  :deep(.el-card) {
-    background: var(--card-bg, #ffffff);
-    border-color: var(--border-color, #dcdfe6);
-  }
-
-  :deep(.el-card__body) {
-    padding: 20px;
-    background: var(--card-bg, #ffffff);
-  }
+.group-card :deep(.el-card__body) {
+  padding: 20px;
 }
 
 .group-header {

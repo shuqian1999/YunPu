@@ -1,14 +1,19 @@
 <template>
-  <div class="persons-container">
-    <div class="persons-header">
-      <h2 class="page-title">人物列表</h2>
-      <el-button type="primary" @click="handleCreate">
-        <el-icon><Plus /></el-icon>
-        添加人物
-      </el-button>
+  <div class="page-container-wide">
+    <div class="page-header">
+      <div class="page-header-left">
+        <h2 class="page-title">人物列表</h2>
+        <span class="page-subtitle">共 {{ persons.length }} 位人物</span>
+      </div>
+      <div class="page-header-right">
+        <el-button type="primary" @click="handleCreate">
+          <el-icon><Plus /></el-icon>
+          添加人物
+        </el-button>
+      </div>
     </div>
-    
-    <el-card class="search-card">
+
+    <el-card class="page-card search-card">
       <div class="search-filters">
         <el-input
           v-model="searchQuery"
@@ -22,7 +27,7 @@
             <el-icon><Search /></el-icon>
           </template>
         </el-input>
-        
+
         <el-select
           v-model="filterGroup"
           placeholder="选择分组"
@@ -45,7 +50,7 @@
             </span>
           </el-option>
         </el-select>
-        
+
         <el-select
           v-model="filterGender"
           placeholder="性别"
@@ -57,7 +62,7 @@
           <el-option label="女" :value="2" />
           <el-option label="未知" :value="0" />
         </el-select>
-        
+
         <el-select
           v-model="filterIsAlive"
           placeholder="状态"
@@ -68,19 +73,19 @@
           <el-option label="在世" :value="true" />
           <el-option label="已故" :value="false" />
         </el-select>
-        
+
         <el-button type="primary" @click="handleSearch">
           <el-icon><Search /></el-icon>
           搜索
         </el-button>
-        
+
         <el-button @click="handleReset">
           <el-icon><RefreshRight /></el-icon>
           重置
         </el-button>
       </div>
     </el-card>
-    
+
     <div v-loading="loading" class="persons-grid">
       <el-card
         v-for="person in persons"
@@ -93,7 +98,7 @@
             {{ person.first_name || person.nickname || '?' }}
           </el-avatar>
         </div>
-        
+
         <div class="person-info">
           <div class="person-name">
             {{ person.last_name }}{{ person.first_name }}
@@ -114,7 +119,7 @@
             <el-tag v-if="person.death_date" type="info" size="small">已故</el-tag>
           </div>
         </div>
-        
+
         <div class="person-actions">
           <el-button
             v-if="!person.is_me"
@@ -127,10 +132,10 @@
           </el-button>
         </div>
       </el-card>
-      
+
       <el-empty v-if="!loading && persons.length === 0" description="暂无人物" />
     </div>
-    
+
     <PersonForm
       v-model:visible="formVisible"
       :person-id="editingPersonId"
@@ -287,34 +292,9 @@ onMounted(() => {
 </script>
 
 <style scoped lang="scss">
-.persons-container {
-  padding: 24px;
-  max-width: 1400px;
-  margin: 0 auto;
-}
-
-.persons-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 24px;
-}
-
-.page-title {
-  font-size: 24px;
-  font-weight: 500;
-  color: var(--text-primary, #303133);
-}
-
 .search-card {
-  margin-bottom: 24px;
-  background: var(--card-bg, #ffffff);
-  border-color: var(--border-color, #dcdfe6);
-
-  :deep(.el-card__body) {
-    padding: 16px;
-    background: var(--card-bg, #ffffff);
-  }
+  margin-bottom: 20px;
+  border-radius: 12px;
 }
 
 .search-filters {
@@ -326,32 +306,10 @@ onMounted(() => {
 
 .search-input {
   width: 280px;
-
-  :deep(.el-input__wrapper) {
-    background: var(--card-bg, #ffffff);
-    box-shadow: 0 0 0 1px var(--border-color, #dcdfe6);
-  }
-
-  :deep(.el-input__inner) {
-    color: var(--text-primary, #303133);
-  }
-
-  :deep(.el-input__inner::placeholder) {
-    color: var(--text-placeholder, #c0c4cc);
-  }
 }
 
 .filter-select {
   width: 140px;
-
-  :deep(.el-input__wrapper) {
-    background: var(--card-bg, #ffffff);
-    box-shadow: 0 0 0 1px var(--border-color, #dcdfe6);
-  }
-
-  :deep(.el-input__inner) {
-    color: var(--text-primary, #303133);
-  }
 }
 
 .group-option-content {
@@ -373,29 +331,30 @@ onMounted(() => {
 
 .persons-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
   gap: 16px;
   min-height: 400px;
 }
 
 .person-card {
   cursor: pointer;
-  transition: all 0.3s;
+  transition: all 0.3s ease;
+  border-radius: 12px;
   background: var(--card-bg, #ffffff);
-  border-color: var(--border-color, #dcdfe6);
+  border: 1px solid var(--border-color, #dcdfe6);
 
   &:hover {
-    box-shadow: var(--box-shadow, 0 4px 16px rgba(0, 0, 0, 0.15));
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.12);
     transform: translateY(-2px);
+    border-color: var(--primary-color, #409EFF);
   }
+}
 
-  :deep(.el-card__body) {
-    padding: 24px;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    background: var(--card-bg, #ffffff);
-  }
+.person-card :deep(.el-card__body) {
+  padding: 24px 16px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
 }
 
 .person-avatar {
@@ -444,10 +403,10 @@ onMounted(() => {
   justify-content: center;
   gap: 4px;
   flex-wrap: wrap;
+}
 
-  .el-tag {
-    margin: 0;
-  }
+.person-tags .el-tag {
+  margin: 0;
 }
 
 .person-actions {
