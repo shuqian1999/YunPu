@@ -258,15 +258,15 @@ const handleAddRelation = async () => {
   try {
     if (relationForm.relationType === 'family') {
       await createFamilyRelation(
-        props.personId,
-        relationForm.person_b_id,
+        relationForm.person_b_id,   // personA = 选中的那个人（"A 是 B 的 X" 的 A）
+        props.personId,             // personB = 当前人物（被 X 描述的对象）
         relationForm.relation,
         relationForm.relation_nature
       )
     } else {
       await createSpouseRelation(
+        relationForm.person_b_id,   // 同上，配偶关系保持对称
         props.personId,
-        relationForm.person_b_id,
         relationForm.relation,
         relationForm.relation_nature
       )

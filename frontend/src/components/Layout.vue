@@ -58,6 +58,10 @@
             <el-icon><User /></el-icon>
             <template #title>人物管理</template>
           </el-menu-item>
+          <el-menu-item index="/family">
+            <el-icon><Share /></el-icon>
+            <template #title>家族关系</template>
+          </el-menu-item>
           <el-menu-item index="/groups">
             <el-icon><CollectionTag /></el-icon>
             <template #title>分组管理</template>
@@ -93,7 +97,7 @@ import { useRouter, useRoute } from 'vue-router'
 import { ElMessage } from 'element-plus'
 import {
   User, UserFilled, Odometer, Setting, SwitchButton,
-  CollectionTag, Cloudy, ArrowDown, Fold, Expand
+  CollectionTag, Cloudy, ArrowDown, Fold, Expand, Share
 } from '@element-plus/icons-vue'
 import NotificationBell from './NotificationBell.vue'
 import ThemeToggle from './ThemeToggle.vue'

@@ -4,11 +4,11 @@ from app.models.person import Person
 from app.models.family_relation import FamilyRelation
 from app.models.spouse_relation import SpouseRelation
 from app.models.enums.relation_enums import (
-    FamilyRelationType, RelationNature, 
+    FamilyRelationType, RelationNature,
     SpouseRelationType, SpouseRelationNature
 )
 from typing import Dict, List, Optional, Tuple
-from collections import deque
+from collections import deque, defaultdict
 
 
 class FamilyService:
@@ -153,7 +153,7 @@ class FamilyService:
             if person:
                 relations.append({
                     "person_id": person.id,
-                    "name": person.nickname or f"{person.last_name or ''}{person.first_name or ''}",
+                    "name": self._display_name(person),
                     "relation_name": self._get_relation_name(rel.relation, rel.relation_nature, "to_me"),
                     "relation_type": rel.relation,
                     "relation_nature": rel.relation_nature,
@@ -171,7 +171,7 @@ class FamilyService:
             if person:
                 relations.append({
                     "person_id": person.id,
-                    "name": person.nickname or f"{person.last_name or ''}{person.first_name or ''}",
+                    "name": self._display_name(person),
                     "relation_name": self._get_spouse_relation_name(rel.relation, "to_me"),
                     "relation_type": f"spouse_{rel.relation}",
                     "relation_nature": rel.relation_nature,
@@ -206,18 +206,22 @@ class FamilyService:
         
         if direct:
             if direct.person_a_id == person_a_id:
-                return {
-                    "relation_name": self._get_relation_name(direct.relation, direct.relation_nature, "from_a"),
-                    "level": 1,
-                    "is_blood": direct.relation_nature == RelationNature.BIOLOGICAL
-                }
-            else:
+                # (person_a, person_b, X) = "person_a 是 person_b 的 X"
+                # person_a 对 person_b 就是 X → 用 from_b（返回 X 本身）
                 return {
                     "relation_name": self._get_relation_name(direct.relation, direct.relation_nature, "from_b"),
                     "level": 1,
                     "is_blood": direct.relation_nature == RelationNature.BIOLOGICAL
                 }
-        
+            else:
+                # (person_b, person_a, X) = "person_b 是 person_a 的 X"
+                # person_a 对 person_b 就是 X 的相反 → 用 from_a
+                return {
+                    "relation_name": self._get_relation_name(direct.relation, direct.relation_nature, "from_a"),
+                    "level": 1,
+                    "is_blood": direct.relation_nature == RelationNature.BIOLOGICAL
+                }
+
         # 2. 检查配偶关系
         spouse = self.db.query(SpouseRelation).filter(
             or_(
@@ -225,11 +229,12 @@ class FamilyService:
                 (SpouseRelation.person_a_id == person_b_id) & (SpouseRelation.person_b_id == person_a_id)
             )
         ).first()
-        
+
         if spouse:
             is_from_a = spouse.person_a_id == person_a_id
+            # 同上逻辑：正向记录用 from_b，反向用 from_a
             return {
-                "relation_name": self._get_spouse_relation_name(spouse.relation, "from_a" if is_from_a else "from_b"),
+                "relation_name": self._get_spouse_relation_name(spouse.relation, "from_b" if is_from_a else "from_a"),
                 "level": 1,
                 "is_blood": False
             }
@@ -263,9 +268,11 @@ class FamilyService:
                     queue.append((rel.person_a_id, new_path))
             
             # 探索家庭关系（子女）
+            # 约定：(A, B, X) 表示 "A 是 B 的 X"
+            # current_id 的孩子 = 找 (current_id, B, FATHER/MOTHER) 这类记录
             child_relations = self.db.query(FamilyRelation).filter(
                 FamilyRelation.person_a_id == current_id,
-                FamilyRelation.relation.in_([FamilyRelationType.SON, FamilyRelationType.DAUGHTER])
+                FamilyRelation.relation.in_([FamilyRelationType.FATHER, FamilyRelationType.MOTHER])
             ).all()
             
             for rel in child_relations:
@@ -387,55 +394,151 @@ class FamilyService:
             "is_blood": is_blood
         }
     
-    def get_family_tree(self) -> Dict:
+    def get_relations_grouped_by_generation(self) -> Dict:
         """
-        获取家族树结构
-        
+        按代差分组返回与"我"相关的所有人物
+
+        从"我"出发做 BFS，记录每个可达人物的代差（正=长辈/负=晚辈/0=同辈），
+        顺手记录路径以便复用现有称谓映射。
+
         Returns:
-            包含节点和边的字典，用于D3.js可视化
+            包含 me、groups、total 的字典
         """
-        nodes = []
-        edges = []
-        
-        # 获取所有人物
-        persons = self.db.query(Person).all()
-        for person in persons:
-            nodes.append({
+        me = self.db.query(Person).filter(Person.is_me == True).first()
+        if not me:
+            return {"me": None, "groups": [], "total": 0}
+
+        # BFS 队列项：(person_id, generation_offset, path)
+        # path 是 [(relation, relation_nature, direction), ...]
+        queue = deque([(me.id, 0, [])])
+        visited = {me.id}
+        discovered: List[Tuple[int, int, list]] = []
+
+        while queue:
+            current_id, gen_offset, path = queue.popleft()
+
+            # 父母方向：代差 +1，direction = "up"
+            parent_rels = self.db.query(FamilyRelation).filter(
+                FamilyRelation.person_b_id == current_id,
+                FamilyRelation.relation.in_([
+                    FamilyRelationType.FATHER,
+                    FamilyRelationType.MOTHER
+                ])
+            ).all()
+            for rel in parent_rels:
+                if rel.person_a_id in visited:
+                    continue
+                visited.add(rel.person_a_id)
+                new_path = path + [(rel.relation, rel.relation_nature, "up")]
+                discovered.append((rel.person_a_id, gen_offset + 1, new_path))
+                queue.append((rel.person_a_id, gen_offset + 1, new_path))
+
+            # 子女方向：代差 -1，direction = "down"
+            # 约定：(person_a, person_b, X) 含义是 "person_a 是 person_b 的 X"
+            # 找 current_id 的孩子 = 找 (current_id, B, FATHER/MOTHER) 这类记录
+            child_rels = self.db.query(FamilyRelation).filter(
+                FamilyRelation.person_a_id == current_id,
+                FamilyRelation.relation.in_([
+                    FamilyRelationType.FATHER,
+                    FamilyRelationType.MOTHER
+                ])
+            ).all()
+            for rel in child_rels:
+                if rel.person_b_id in visited:
+                    continue
+                visited.add(rel.person_b_id)
+                new_path = path + [(rel.relation, rel.relation_nature, "down")]
+                discovered.append((rel.person_b_id, gen_offset - 1, new_path))
+                queue.append((rel.person_b_id, gen_offset - 1, new_path))
+
+            # 配偶方向：代差不变，direction = "spouse"
+            spouse_rels = self.db.query(SpouseRelation).filter(
+                or_(
+                    SpouseRelation.person_a_id == current_id,
+                    SpouseRelation.person_b_id == current_id
+                )
+            ).all()
+            for rel in spouse_rels:
+                spouse_id = rel.person_b_id if rel.person_a_id == current_id else rel.person_a_id
+                if spouse_id in visited:
+                    continue
+                visited.add(spouse_id)
+                new_path = path + [(rel.relation, rel.relation_nature, "spouse")]
+                discovered.append((spouse_id, gen_offset, new_path))
+                queue.append((spouse_id, gen_offset, new_path))
+
+        # 把发现的人物按代差分组，并算称谓
+        grouped: Dict[int, List[Dict]] = defaultdict(list)
+        for person_id, gen_offset, path in discovered:
+            person = self.db.query(Person).filter(Person.id == person_id).first()
+            if not person:
+                continue
+
+            if path:
+                rel_info = self._path_to_relation_name(path, person_id, path[-1][2])
+                last_nature = path[-1][1]
+            else:
+                rel_info = {"relation_name": "我", "is_blood": True, "level": 0}
+                last_nature = 0
+
+            grouped[gen_offset].append({
                 "id": person.id,
-                "name": person.nickname or f"{person.last_name or ''}{person.first_name or ''}",
+                "name": self._display_name(person),
+                "avatar_url": person.avatar_url,
                 "gender": person.gender,
                 "birth_date": person.birth_date.isoformat() if person.birth_date else None,
                 "death_date": person.death_date.isoformat() if person.death_date else None,
-                "is_me": person.is_me
+                "relation_name": rel_info.get("relation_name", "亲属"),
+                "is_blood": rel_info.get("is_blood", False),
+                "relation_nature": last_nature,
+                "generation_offset": gen_offset
             })
-        
-        # 获取所有家庭关系
-        family_relations = self.db.query(FamilyRelation).filter(
-            FamilyRelation.relation.in_([FamilyRelationType.FATHER, FamilyRelationType.MOTHER])
-        ).all()
-        
-        for rel in family_relations:
-            edges.append({
-                "source": rel.person_a_id,
-                "target": rel.person_b_id,
-                "relation_type": rel.relation,
-                "relation_nature": rel.relation_nature
+
+        # 拼最终结果：先长辈子孙辈从大到小
+        result_groups = []
+        for offset in sorted(grouped.keys(), reverse=True):
+            persons = sorted(
+                grouped[offset],
+                key=lambda p: (p["relation_name"], p["name"])
+            )
+            result_groups.append({
+                "generation_offset": offset,
+                "label": self._generation_label(offset),
+                "count": len(persons),
+                "persons": persons
             })
-        
-        # 获取所有配偶关系
-        spouse_relations = self.db.query(SpouseRelation).all()
-        
-        for rel in spouse_relations:
-            edges.append({
-                "source": rel.person_a_id,
-                "target": rel.person_b_id,
-                "relation_type": f"spouse_{rel.relation}",
-                "relation_nature": rel.relation_nature,
-                "is_spouse": True
-            })
-        
-        return {"nodes": nodes, "edges": edges}
-    
+
+        return {
+            "me": me.to_dict(),
+            "groups": result_groups,
+            "total": sum(g["count"] for g in result_groups)
+        }
+
+    @staticmethod
+    def _generation_label(offset: int) -> str:
+        """代差值转中文标签"""
+        if offset >= 3:
+            return f"高祖辈 (+{offset})"
+        if offset == 2:
+            return "祖辈"
+        if offset == 1:
+            return "父辈"
+        if offset == 0:
+            return "同辈"
+        if offset == -1:
+            return "子辈"
+        if offset == -2:
+            return "孙辈"
+        return f"晚辈 ({offset})"
+
+    @staticmethod
+    def _display_name(person: Person) -> str:
+        """统一人物显示名：姓+名 优先，没有才回退到昵称"""
+        full = f"{person.last_name or ''}{person.first_name or ''}".strip()
+        if full:
+            return full
+        return person.nickname or "未命名"
+
     def _get_reverse_relation(self, relation: int) -> int:
         """获取反向关系类型"""
         reverse_map = {
@@ -458,28 +561,39 @@ class FamilyService:
         return reverse_map.get(relation, relation)
     
     def _get_relation_name(self, relation: int, relation_nature: int, direction: str) -> str:
-        """获取关系名称（不含性质前缀）"""
-        # 基础关系名称
-        if direction == "to_me":
+        """获取关系名称（不含性质前缀）
+
+        约定：(A, B, X) 表示 "A 是 B 的 X"
+        - direction == "to_me" / "from_a"：以 A 视角描述 B → 取 X 的相反
+        - direction == "from_b"：以 B 视角描述 A → 取 X 本身
+        """
+        if direction == "from_b":
+            # B 视角描述 A：A 就是 X
             relation_names = {
                 FamilyRelationType.FATHER: "父亲",
                 FamilyRelationType.MOTHER: "母亲",
                 FamilyRelationType.SON: "儿子",
                 FamilyRelationType.DAUGHTER: "女儿"
             }
-        else:  # from_a
+        else:
+            # to_me / from_a：A 视角描述 B，B 是 X 的相反
             relation_names = {
-                FamilyRelationType.FATHER: "父亲",
-                FamilyRelationType.MOTHER: "母亲",
-                FamilyRelationType.SON: "儿子",
-                FamilyRelationType.DAUGHTER: "女儿"
+                FamilyRelationType.FATHER: "儿子",   # "我是父亲" → 对方是儿子
+                FamilyRelationType.MOTHER: "女儿",   # "我是母亲" → 对方是女儿
+                FamilyRelationType.SON: "父亲",      # "我是儿子" → 对方是父亲
+                FamilyRelationType.DAUGHTER: "母亲"  # "我是女儿" → 对方是母亲
             }
-        
         return relation_names.get(relation, "未知")
-    
+
     def _get_spouse_relation_name(self, relation: int, direction: str) -> str:
-        """获取配偶关系名称"""
-        if direction == "to_me" or direction == "from_a":
+        """获取配偶关系名称
+
+        约定：(A, B, X) 表示 "A 是 B 的 X"
+        - direction == "to_me" / "from_a"：以 A 视角描述 B → B 是 X 的相反
+        - direction == "from_b"：以 B 视角描述 A → A 是 X 本身
+        """
+        if direction == "from_b":
+            # B 视角描述 A：A 就是 X
             relation_names = {
                 SpouseRelationType.HUSBAND: "丈夫",
                 SpouseRelationType.WIFE: "妻子",
@@ -487,13 +601,13 @@ class FamilyService:
                 SpouseRelationType.BOYFRIEND: "男朋友",
                 SpouseRelationType.GIRLFRIEND: "女朋友"
             }
-        else:  # from_b
+        else:
+            # to_me / from_a：A 视角描述 B，B 是 X 的相反
             relation_names = {
-                SpouseRelationType.HUSBAND: "妻子",
-                SpouseRelationType.WIFE: "丈夫",
-                SpouseRelationType.CONCUBINE: "妻子",
-                SpouseRelationType.BOYFRIEND: "女朋友",
-                SpouseRelationType.GIRLFRIEND: "男朋友"
+                SpouseRelationType.HUSBAND: "妻子",     # "我是丈夫" → 对方是妻子
+                SpouseRelationType.WIFE: "丈夫",        # "我是妻子" → 对方是丈夫
+                SpouseRelationType.CONCUBINE: "丈夫",   # "我是妾" → 对方是丈夫
+                SpouseRelationType.BOYFRIEND: "女朋友",  # "我是男友" → 对方是女友
+                SpouseRelationType.GIRLFRIEND: "男朋友"  # "我是女友" → 对方是男友
             }
-        
         return relation_names.get(relation, "配偶")

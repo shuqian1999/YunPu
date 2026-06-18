@@ -12,15 +12,6 @@ from app.models.enums.relation_enums import (
 router = APIRouter(prefix="/family", tags=["家谱"])
 
 
-@router.get("/tree")
-def get_family_tree(
-    db: Session = Depends(get_db)
-):
-    """获取家族树结构"""
-    service = FamilyService(db)
-    return service.get_family_tree()
-
-
 @router.get("/relations/to-me")
 def get_relations_to_me(
     db: Session = Depends(get_db)
@@ -28,6 +19,18 @@ def get_relations_to_me(
     """获取所有与"我"的亲属关系"""
     service = FamilyService(db)
     return service.get_relations_to_me()
+
+
+@router.get("/relations/grouped")
+def get_relations_grouped(
+    db: Session = Depends(get_db)
+):
+    """
+    按代差分组返回与"我"相关的所有人物
+    用于"按代差列表展示"视图
+    """
+    service = FamilyService(db)
+    return service.get_relations_grouped_by_generation()
 
 
 @router.get("/relations/between")
