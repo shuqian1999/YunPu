@@ -30,8 +30,11 @@ export const createFamilyRelation = (personAId, personBId, relation, relationNat
   })
 }
 
-// 创建配偶关系
-export const createSpouseRelation = (personAId, personBId, relation, relationNature = 0) => {
+// 创建配偶关系段（startDate/endDate 为 'YYYY-MM-DD' 字符串，可空）
+export const createSpouseRelation = (
+  personAId, personBId, relation, relationNature = 0,
+  startDate = null, endDate = null
+) => {
   return request({
     url: '/family/relation/spouse',
     method: 'post',
@@ -39,7 +42,9 @@ export const createSpouseRelation = (personAId, personBId, relation, relationNat
       person_a_id: personAId,
       person_b_id: personBId,
       relation: relation,
-      relation_nature: relationNature
+      relation_nature: relationNature,
+      start_date: startDate,
+      end_date: endDate
     }
   })
 }
@@ -56,14 +61,15 @@ export const deleteFamilyRelation = (personAId, personBId) => {
   })
 }
 
-// 删除配偶关系
-export const deleteSpouseRelation = (personAId, personBId) => {
+// 删除配偶关系段（同一对人存在多段时必须传 relationId 指定具体段）
+export const deleteSpouseRelation = (personAId, personBId, relationId = null) => {
   return request({
     url: '/family/relation/spouse',
     method: 'delete',
     params: {
       person_a_id: personAId,
-      person_b_id: personBId
+      person_b_id: personBId,
+      relation_id: relationId
     }
   })
 }

@@ -10,8 +10,18 @@ from app.models.event import Event
 from app.schemas.person import PersonCreate, PersonUpdate, PersonResponse
 from app.services.family_service import FamilyService
 from app.services.lunar_service import LunarService
+from app.services.tag_service import sync_person_tags
 
 router = APIRouter(prefix="/persons", tags=["人物"])
+
+
+def _transfer_me(db: Session, exclude_id):
+    """把「我」的标记从现有持有者身上收回（保证全库唯一）。
+    exclude_id 为即将成为新「我」的人物 id（新人物尚未落库时传 None）。"""
+    query = db.query(Person).filter(Person.is_me == True)  # noqa: E712
+    if exclude_id is not None:
+        query = query.filter(Person.id != exclude_id)
+    query.update({Person.is_me: False}, synchronize_session=False)
 
 
 @router.get("", response_model=List[PersonResponse])
@@ -39,8 +49,23 @@ def create_person(
     person: PersonCreate,
     db: Session = Depends(get_db)
 ):
-    db_person = Person(**person.model_dump())
+    data = person.model_dump()
+    tag_names = data.pop("tag_names", None)
+
+    # is_me 全库唯一：新建时若标记为"我"，原"我"自动让位（转让）
+    if data.get("is_me"):
+        _transfer_me(db, exclude_id=None)
+
+    db_person = Person(**data)
+    if db_person.importance is None:
+        db_person.importance = 3
+
     db.add(db_person)
+    db.flush()
+
+    if tag_names is not None:
+        sync_person_tags(db, db_person, tag_names)
+
     db.commit()
     db.refresh(db_person)
     return db_person
@@ -113,48 +138,9 @@ def get_person_relations(
     person_id: int,
     db: Session = Depends(get_db)
 ):
-    """获取人物的所有关系"""
+    """获取人物的所有直接关系（父母/子女/配偶段，批量内存图构建）"""
     service = FamilyService(db)
-    
-    relations = []
-    
-    # 获取作为 person_a 的关系
-    from app.models.family_relation import FamilyRelation
-    from app.models.spouse_relation import SpouseRelation
-    
-    family_as_a = db.query(FamilyRelation).filter(
-        FamilyRelation.person_a_id == person_id
-    ).all()
-    
-    for rel in family_as_a:
-        person_b = db.query(Person).filter(Person.id == rel.person_b_id).first()
-        if person_b:
-            person_b_name = f"{person_b.last_name or ''}{person_b.first_name or ''}".strip()
-            relations.append({
-                "person_id": person_b.id,
-                "name": person_b_name or f"人物{person_b.id}",
-                "relation_name": service._get_relation_name(rel.relation, rel.relation_nature, "from_a"),
-                "relation_type": rel.relation,
-                "relation_nature": rel.relation_nature
-            })
-    
-    spouse_as_a = db.query(SpouseRelation).filter(
-        SpouseRelation.person_a_id == person_id
-    ).all()
-    
-    for rel in spouse_as_a:
-        person_b = db.query(Person).filter(Person.id == rel.person_b_id).first()
-        if person_b:
-            person_b_name = f"{person_b.last_name or ''}{person_b.first_name or ''}".strip()
-            relations.append({
-                "person_id": person_b.id,
-                "name": person_b_name or f"人物{person_b.id}",
-                "relation_name": service._get_spouse_relation_name(rel.relation, "from_a"),
-                "relation_type": f"spouse_{rel.relation}",
-                "relation_nature": rel.relation_nature
-            })
-    
-    return relations
+    return service.get_direct_relations(person_id)
 
 
 @router.get("/{person_id}/detail")
@@ -227,9 +213,29 @@ def update_person(
             detail="人物不存在"
         )
     
-    for key, value in person.model_dump(exclude_unset=True).items():
+    data = person.model_dump(exclude_unset=True)
+    tag_names = data.pop("tag_names", None)
+
+    # is_me 唯一锚点保护：允许"转让"（把别人设为我，原"我"自动让位），
+    # 但不能直接取消当前唯一的"我"
+    if "is_me" in data:
+        if data["is_me"]:
+            if not db_person.is_me:
+                _transfer_me(db, exclude_id=person_id)
+            # data 保留 is_me=True，由下方 setattr 写到当前人物
+        elif db_person.is_me:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="不能取消「我」的标记。如需更换视角人物，请直接在目标人物卡上将其设为「我」"
+            )
+
+    for key, value in data.items():
         setattr(db_person, key, value)
-    
+
+    if tag_names is not None:
+        db.flush()
+        sync_person_tags(db, db_person, tag_names)
+
     db.commit()
     db.refresh(db_person)
     return db_person
@@ -243,15 +249,35 @@ def delete_person(
     from app.models.person_group import PersonGroupMember
     from app.models.family_relation import FamilyRelation
     from app.models.spouse_relation import SpouseRelation
+    from app.models.social_relation import SocialRelation
+    from app.models.contact_record import ContactRecord
+    from app.models.tag import PersonTag
     
     db_person = db.query(Person).filter(Person.id == person_id).first()
-    
+
     if not db_person:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="人物不存在"
         )
-    
+
+    # 「我」是家族称谓的视角锚点，必须全库唯一存在，禁止删除
+    if db_person.is_me:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="「我」是家族关系的视角人物，不能删除。如需更换，请先把「我」转让给其他人物卡"
+        )
+
+    # 删除人物的交往记录
+    db.query(ContactRecord).filter(
+        ContactRecord.person_id == person_id
+    ).delete(synchronize_session=False)
+
+    # 删除人物的标签关联
+    db.query(PersonTag).filter(
+        PersonTag.person_id == person_id
+    ).delete(synchronize_session=False)
+
     # 删除人物在分组中的关联记录
     db.query(PersonGroupMember).filter(
         PersonGroupMember.person_id == person_id
@@ -266,7 +292,15 @@ def delete_person(
     db.query(SpouseRelation).filter(
         (SpouseRelation.person_a_id == person_id) | (SpouseRelation.person_b_id == person_id)
     ).delete(synchronize_session=False)
-    
+
+    # 阶段2：删除该人作为当事人的社会关系；作为他人关系的介绍人时仅置空
+    db.query(SocialRelation).filter(
+        (SocialRelation.person_a_id == person_id) | (SocialRelation.person_b_id == person_id)
+    ).delete(synchronize_session=False)
+    db.query(SocialRelation).filter(
+        SocialRelation.introducer_id == person_id
+    ).update({SocialRelation.introducer_id: None}, synchronize_session=False)
+
     db.delete(db_person)
     db.commit()
 

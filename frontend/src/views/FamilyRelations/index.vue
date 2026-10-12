@@ -8,9 +8,7 @@
       </div>
     </div>
 
-    <div v-if="loading" class="loading-state">
-      <el-skeleton :rows="6" animated />
-    </div>
+    <PageSkeleton v-if="loading" variant="list" :rows="6" />
 
     <el-empty
       v-else-if="!data || data.total === 0"
@@ -74,6 +72,19 @@
         </div>
       </div>
     </div>
+
+    <el-alert
+      v-if="data && data.total > 0"
+      class="graph-tip"
+      type="info"
+      :closable="false"
+      show-icon
+    >
+      <template #title>
+        想看可视化关系网络（含同分组、同标签）？请前往
+        <router-link to="/relationships">关系图谱</router-link>
+      </template>
+    </el-alert>
   </div>
 </template>
 
@@ -82,6 +93,7 @@ import { ref, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { ArrowDown, UserFilled, Calendar } from '@element-plus/icons-vue'
 import { getRelationsGrouped } from '@/api/family'
+import PageSkeleton from '@/components/PageSkeleton.vue'
 
 const router = useRouter()
 
@@ -151,6 +163,12 @@ onMounted(() => {
   margin: 0 auto;
 }
 
+@media (max-width: 768px) {
+  .family-relations {
+    padding: 12px;
+  }
+}
+
 .page-header {
   display: flex;
   align-items: center;
@@ -167,9 +185,23 @@ onMounted(() => {
   color: var(--text-primary, #303133);
 }
 
+.graph-tip {
+  margin-top: 20px;
+}
+
 .page-meta {
   display: flex;
   gap: 8px;
+}
+
+.graph-tip :deep(a) {
+  color: var(--primary-color, #409eff);
+  font-weight: 500;
+  text-decoration: none;
+}
+
+.graph-tip :deep(a:hover) {
+  text-decoration: underline;
 }
 
 .loading-state {

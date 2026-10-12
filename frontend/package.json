@@ -9,6 +9,7 @@
   },
   "dependencies": {
     "@element-plus/icons-vue": "^2.1.0",
+    "3d-force-graph": "^1.73.3",
     "axios": "^1.5.0",
     "element-plus": "^2.4.1",
     "pinia": "^2.1.7",

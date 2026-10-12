@@ -15,6 +15,10 @@ from app.api.v1.search import router as search_router
 from app.api.v1.notifications import router as notifications_router
 from app.api.v1.lunar import router as lunar_router
 from app.api.v1.email import router as email_router
+from app.api.v1.contact_records import router as contact_records_router
+from app.api.v1.tags import router as tags_router
+from app.api.v1.relationships import router as relationships_router
+from app.api.v1.social import router as social_router
 
 api_router = APIRouter()
 api_router.include_router(auth_router)
@@ -32,3 +36,7 @@ api_router.include_router(search_router)
 api_router.include_router(notifications_router)
 api_router.include_router(lunar_router)
 api_router.include_router(email_router)
+api_router.include_router(contact_records_router)
+api_router.include_router(tags_router)
+api_router.include_router(relationships_router)
+api_router.include_router(social_router)

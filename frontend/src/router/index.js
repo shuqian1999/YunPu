@@ -7,6 +7,8 @@ import Settings from '../views/Settings/index.vue'
 import Groups from '../views/Groups/index.vue'
 import FamilyRelations from '../views/FamilyRelations/index.vue'
 
+const RelationshipGraph = () => import('../views/RelationshipGraph/index.vue')
+
 const routes = [
   {
     path: '/login',
@@ -36,6 +38,12 @@ const routes = [
     path: '/family',
     name: 'FamilyRelations',
     component: FamilyRelations,
+    meta: { requiresAuth: true }
+  },
+  {
+    path: '/relationships',
+    name: 'RelationshipGraph',
+    component: RelationshipGraph,
     meta: { requiresAuth: true }
   },
   {

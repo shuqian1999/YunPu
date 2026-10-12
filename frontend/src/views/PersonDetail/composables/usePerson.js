@@ -17,15 +17,16 @@ export function usePerson(personId) {
   const availablePersons = ref([])
   const loading = ref(false)
 
-  const loadSharedData = async () => {
+  const loadSharedData = async (targetId = personId) => {
     loading.value = true
     try {
       const [personData, countriesData, eventTypesData, groupsData, personsData] = await Promise.all([
-        getPerson(personId),
+        getPerson(targetId),
         getCountries(),
         getEventTypes(),
         getGroups(),
-        getPersons()
+        // 关系类对话框需要全量人物可选（后端默认 limit=20 仅适用于列表分页）
+        getPersons({ skip: 0, limit: 100000 })
       ])
 
       personInfo.value = personData
@@ -34,11 +35,17 @@ export function usePerson(personId) {
       allGroups.value = groupsData
 
       availablePersons.value = personsData
-        .map(p => ({
-          id: p.id,
-          name: p.nickname || `${p.last_name || ''}${p.first_name || ''}`.trim() || '未命名'
-        }))
-        .filter(p => p.id !== personId)
+        .map(p => {
+          const fullName = `${p.last_name || ''}${p.first_name || ''}`.trim()
+          const nickname = (p.nickname || '').trim()
+          const baseName = fullName || nickname || '未命名'
+          // 选择器选项展示「姓名（称呼）」，filterable 可按任一字段检索
+          const name = fullName && nickname && nickname !== fullName
+            ? `${fullName}（${nickname}）`
+            : baseName
+          return { id: p.id, name, fullName: baseName, nickname }
+        })
+        .filter(p => p.id !== targetId)
     } catch (error) {
       console.error('加载共享数据失败:', error)
     } finally {

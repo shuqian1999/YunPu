@@ -7,46 +7,52 @@
       </div>
     </div>
 
-    <div class="dashboard-grid">
-      <StatCard
-        :value="stats.person_count"
-        label="人物总数"
-        :icon="User"
-        icon-class="person-icon"
-      />
-      <StatCard
-        :value="stats.event_count"
-        label="事件总数"
-        :icon="Document"
-        icon-class="event-icon"
-      />
-      <StatCard
-        :value="stats.reminder_count"
-        label="提醒总数"
-        :icon="Bell"
-        icon-class="reminder-icon"
-      />
+    <PageSkeleton v-if="initialLoading" variant="dashboard" />
 
-      <EventsTimeline
-        :events="filteredEvents"
-        :show-filter-panel="showFilterPanel"
-        :search-keyword="searchKeyword"
-        :date-range="dateRange"
-        :selected-types="selectedTypes"
-        :selected-persons="selectedPersons"
-        :available-types="availableTypes"
-        :available-persons="availablePersons"
-        :active-filter-count="activeFilterCount"
-        @toggle-filter="showFilterPanel = !showFilterPanel"
-        @clear-filters="clearFilters"
-        @update:search-keyword="searchKeyword = $event"
-        @update:date-range="dateRange = $event"
-        @update:selected-types="selectedTypes = $event"
-        @update:selected-persons="selectedPersons = $event"
-      />
+    <template v-else>
+      <TodayFocus />
 
-      <RemindersList :reminders="reminders" />
-    </div>
+      <div class="dashboard-grid">
+        <StatCard
+          :value="stats.person_count"
+          label="人物总数"
+          :icon="User"
+          icon-class="person-icon"
+        />
+        <StatCard
+          :value="stats.event_count"
+          label="事件总数"
+          :icon="Document"
+          icon-class="event-icon"
+        />
+        <StatCard
+          :value="stats.reminder_count"
+          label="提醒总数"
+          :icon="Bell"
+          icon-class="reminder-icon"
+        />
+
+        <EventsTimeline
+          :events="filteredEvents"
+          :show-filter-panel="showFilterPanel"
+          :search-keyword="searchKeyword"
+          :date-range="dateRange"
+          :selected-types="selectedTypes"
+          :selected-persons="selectedPersons"
+          :available-types="availableTypes"
+          :available-persons="availablePersons"
+          :active-filter-count="activeFilterCount"
+          @toggle-filter="showFilterPanel = !showFilterPanel"
+          @clear-filters="clearFilters"
+          @update:search-keyword="searchKeyword = $event"
+          @update:date-range="dateRange = $event"
+          @update:selected-types="selectedTypes = $event"
+          @update:selected-persons="selectedPersons = $event"
+        />
+
+        <RemindersList :reminders="reminders" />
+      </div>
+    </template>
   </div>
 </template>
 
@@ -55,8 +61,12 @@ import { ref, computed, onMounted } from 'vue'
 import { User, Document, Bell } from '@element-plus/icons-vue'
 import { getDashboardStats, getDashboardEvents, getDashboardReminders } from '@/api/dashboard'
 import StatCard from './components/StatCard.vue'
+import TodayFocus from './components/TodayFocus.vue'
 import EventsTimeline from './components/EventsTimeline.vue'
 import RemindersList from './components/RemindersList.vue'
+import PageSkeleton from '@/components/PageSkeleton.vue'
+
+const initialLoading = ref(true)
 
 const stats = ref({
   person_count: 0,
@@ -165,6 +175,8 @@ const loadDashboard = async () => {
     clearFilters()
   } catch (error) {
     console.error('加载仪表盘失败:', error)
+  } finally {
+    initialLoading.value = false
   }
 }
 
@@ -178,6 +190,17 @@ onMounted(() => {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
   gap: 16px;
+}
+
+@media (max-width: 768px) {
+  .dashboard-grid {
+    grid-template-columns: 1fr;
+    gap: 12px;
+  }
+  .dashboard-grid > * {
+    grid-column: auto !important;
+    grid-row: auto !important;
+  }
 }
 </style>
 

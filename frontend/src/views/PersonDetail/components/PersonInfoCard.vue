@@ -3,9 +3,22 @@
     <div class="info-header">
       <div class="info-header-left">
         <span class="person-name">{{ displayName }}</span>
+        <FavoriteHeart
+          :person-id="personId"
+          :model-value="!!personInfo.is_favorite"
+          :size="20"
+          @change="handleFavoriteChange"
+        />
         <el-tag v-if="personInfo.is_me" type="primary" size="small">我</el-tag>
         <el-tag v-if="personInfo.gender === 2" type="success" size="small">女</el-tag>
         <el-tag v-else-if="personInfo.gender === 1" type="warning" size="small">男</el-tag>
+        <el-rate
+          v-if="(personInfo.importance || 0) > 0"
+          :model-value="personInfo.importance || 0"
+          disabled
+          size="small"
+          class="importance-rate"
+        />
       </div>
       <div class="info-header-right">
         <template v-if="!isEditing">
@@ -25,17 +38,7 @@
       <!-- 头像 -->
       <div class="avatar-wrapper">
         <div class="avatar-container" @click="isEditing && !uploading && triggerUpload">
-          <img
-            v-if="personInfo.avatar_url"
-            :src="personInfo.avatar_url"
-            class="avatar"
-            alt="头像"
-          />
-          <div v-else class="avatar-placeholder">
-            <el-icon :size="48" class="avatar-icon">
-              <User />
-            </el-icon>
-          </div>
+          <PersonAvatar :person="personInfo" :size="160" class="main-avatar" />
           <div v-if="personInfo.death_date" class="deceased-marker">
             <span>逝</span>
           </div>
@@ -85,6 +88,13 @@
             <el-radio :value="1">男</el-radio>
             <el-radio :value="2">女</el-radio>
           </el-radio-group>
+        </div>
+        <div class="info-row">
+          <span class="label">重要度</span>
+          <span v-if="!isEditing" class="value importance-value">
+            <el-rate :model-value="personInfo.importance || 0" disabled size="small" />
+          </span>
+          <el-rate v-else v-model="editForm.importance" :max="5" class="edit-rate" />
         </div>
         <div class="info-row">
           <span class="label">出生日期</span>
@@ -156,6 +166,86 @@
           <el-input v-else v-model="editForm.residence" class="edit-input" placeholder="请输入现居地" />
         </div>
         <div class="info-row">
+          <span class="label">手机</span>
+          <span v-if="!isEditing" class="value">
+            <a v-if="personInfo.phone" :href="`tel:${personInfo.phone}`" class="contact-link">{{ personInfo.phone }}</a>
+            <template v-else>-</template>
+          </span>
+          <el-input v-else v-model="editForm.phone" class="edit-input" placeholder="请输入手机号" />
+        </div>
+        <div class="info-row">
+          <span class="label">邮箱</span>
+          <span v-if="!isEditing" class="value">
+            <a v-if="personInfo.email" :href="`mailto:${personInfo.email}`" class="contact-link">{{ personInfo.email }}</a>
+            <template v-else>-</template>
+          </span>
+          <el-input v-else v-model="editForm.email" class="edit-input" placeholder="请输入邮箱" />
+        </div>
+        <div class="info-row">
+          <span class="label">微信</span>
+          <span v-if="!isEditing" class="value">{{ personInfo.wechat || '-' }}</span>
+          <el-input v-else v-model="editForm.wechat" class="edit-input" placeholder="请输入微信号" />
+        </div>
+        <div class="info-row">
+          <span class="label">单位</span>
+          <span v-if="!isEditing" class="value">{{ personInfo.company || '-' }}</span>
+          <el-input v-else v-model="editForm.company" class="edit-input" placeholder="请输入工作单位" />
+        </div>
+        <div class="info-row">
+          <span class="label">职业</span>
+          <span v-if="!isEditing" class="value">{{ personInfo.occupation || '-' }}</span>
+          <el-input v-else v-model="editForm.occupation" class="edit-input" placeholder="请输入职业" />
+        </div>
+        <div class="info-row">
+          <span class="label">地址</span>
+          <span v-if="!isEditing" class="value">{{ personInfo.address || '-' }}</span>
+          <el-input v-else v-model="editForm.address" class="edit-input" placeholder="请输入详细地址" />
+        </div>
+        <div class="info-row">
+          <span class="label">网址</span>
+          <span v-if="!isEditing" class="value">
+            <a v-if="personInfo.website" :href="personInfo.website" target="_blank" rel="noopener" class="contact-link">{{ personInfo.website }}</a>
+            <template v-else>-</template>
+          </span>
+          <el-input v-else v-model="editForm.website" class="edit-input" placeholder="请输入个人网址" />
+        </div>
+        <div class="info-row info-row-stack">
+          <span class="label">标签</span>
+          <div v-if="!isEditing" class="value tags-view">
+            <template v-if="(personInfo.tags || []).length">
+              <el-tag
+                v-for="tag in personInfo.tags"
+                :key="tag.id"
+                class="person-tag"
+                effect="dark"
+                :style="{ backgroundColor: tag.color, borderColor: tag.color }"
+              >
+                {{ tag.name }}
+              </el-tag>
+            </template>
+            <span v-else class="tags-empty">-</span>
+          </div>
+          <el-select
+            v-else
+            v-model="editForm.tagNames"
+            multiple
+            filterable
+            allow-create
+            default-first-option
+            collapse-tags
+            collapse-tags-tooltip
+            class="tag-select"
+            placeholder="输入后回车可创建标签"
+          >
+            <el-option
+              v-for="tag in allTags"
+              :key="tag.id"
+              :label="tag.name"
+              :value="tag.name"
+            />
+          </el-select>
+        </div>
+        <div class="info-row">
           <span class="label">备注</span>
           <span v-if="!isEditing" class="value">{{ personInfo.custom_fields?.notes || '-' }}</span>
           <el-input v-else v-model="editForm.notes" class="edit-textarea" type="textarea" placeholder="请输入备注" :rows="3" />
@@ -184,10 +274,13 @@
 </template>
 
 <script setup>
-import { ref, reactive, inject, computed } from 'vue'
-import { User, Edit, Camera, Loading } from '@element-plus/icons-vue'
+import { ref, reactive, inject, computed, onMounted } from 'vue'
+import { Edit, Camera, Loading } from '@element-plus/icons-vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { updatePerson, uploadPersonAvatar, deletePersonAvatar } from '@/api/persons'
+import { getTags } from '@/api/tags'
+import PersonAvatar from '@/components/PersonAvatar.vue'
+import FavoriteHeart from '@/components/FavoriteHeart.vue'
 
 const props = defineProps({
   personId: { type: Number, required: true }
@@ -201,15 +294,25 @@ const shared = inject('personShared', null)
 const personInfo = computed(() => shared?.personInfo?.value || {})
 const countries = computed(() => shared?.countries?.value || {})
 
+// 关注状态由 FavoriteHeart 自行调接口，这里仅同步共享数据，避免回显滞后
+const handleFavoriteChange = (isFavorite) => {
+  if (shared?.personInfo?.value) {
+    shared.personInfo.value.is_favorite = isFavorite
+  }
+}
+
 const isEditing = ref(false)
 const saving = ref(false)
 const uploading = ref(false)
 const fileInputRef = ref(null)
+const allTags = ref([])
 
 const editForm = reactive({
   nickname: '',
   name: '',
   gender: null,
+  importance: 3,
+  tagNames: [],
   birth_date: '',
   is_lunar_birth: false,
   is_deceased: false,
@@ -218,6 +321,13 @@ const editForm = reactive({
   country: '',
   hometown: '',
   residence: '',
+  phone: '',
+  email: '',
+  wechat: '',
+  company: '',
+  occupation: '',
+  address: '',
+  website: '',
   notes: '',
   customFields: []
 })
@@ -272,7 +382,19 @@ const startEdit = () => {
   editForm.country = p.country || ''
   editForm.hometown = p.hometown || ''
   editForm.residence = p.residence || ''
+  editForm.phone = p.phone || ''
+  editForm.email = p.email || ''
+  editForm.wechat = p.wechat || ''
+  editForm.company = p.company || ''
+  editForm.occupation = p.occupation || ''
+  editForm.address = p.address || ''
+  editForm.website = p.website || ''
+  editForm.importance = p.importance || 3
+  editForm.tagNames = (p.tags || []).map(tag => tag.name)
   editForm.notes = p.custom_fields?.notes || ''
+
+  // 确保标签选项已加载（用于下拉提示，新标签仍可直接输入创建）
+  loadTags()
 
   const customFieldsData = p.custom_fields || {}
   const fields = []
@@ -369,6 +491,15 @@ const saveEdit = async () => {
       country: editForm.country || null,
       hometown: editForm.hometown || null,
       residence: editForm.residence || null,
+      phone: editForm.phone || null,
+      email: editForm.email || null,
+      wechat: editForm.wechat || null,
+      company: editForm.company || null,
+      occupation: editForm.occupation || null,
+      address: editForm.address || null,
+      website: editForm.website || null,
+      importance: editForm.importance || 3,
+      tag_names: editForm.tagNames,
       custom_fields: Object.keys(custom_fields).length > 0 ? custom_fields : null
     }
 
@@ -390,6 +521,18 @@ const addCustomField = () => {
 const removeCustomField = (index) => {
   editForm.customFields.splice(index, 1)
 }
+
+const loadTags = async () => {
+  try {
+    allTags.value = await getTags()
+  } catch (error) {
+    console.error('加载标签失败:', error)
+  }
+}
+
+onMounted(() => {
+  loadTags()
+})
 </script>
 
 <style scoped>
@@ -448,37 +591,21 @@ const removeCustomField = (index) => {
 .avatar-container {
   position: relative;
   cursor: pointer;
+  display: inline-block;
+  line-height: 0;
 }
 
-.avatar {
+.main-avatar {
   width: 160px;
   height: 160px;
-  border-radius: 50%;
-  object-fit: cover;
   border: 4px solid var(--primary-color, #409EFF);
-}
-
-.avatar-placeholder {
-  width: 160px;
-  height: 160px;
-  border-radius: 50%;
-  background: var(--border-lighter, #f0f0f0);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  border: 4px solid var(--primary-color, #409EFF);
-}
-
-.avatar-icon {
-  color: var(--primary-color, #409EFF);
+  font-size: 64px;
+  box-sizing: content-box;
 }
 
 .avatar-overlay {
   position: absolute;
-  top: 0;
-  left: 0;
-  width: 160px;
-  height: 160px;
+  inset: 4px;
   border-radius: 50%;
   background: rgba(0, 0, 0, 0.5);
   display: flex;
@@ -486,9 +613,7 @@ const removeCustomField = (index) => {
   justify-content: center;
   color: white;
   opacity: 0;
-  transition: opacity 0.3s;
-  border: 4px solid var(--primary-color, #409EFF);
-  box-sizing: border-box;
+  transition: opacity var(--transition-base, 0.2s ease);
 }
 
 .avatar-container:hover .avatar-overlay {
@@ -558,6 +683,15 @@ const removeCustomField = (index) => {
   text-align: right;
   min-width: 0;
   word-break: break-word;
+}
+
+.contact-link {
+  color: var(--primary-color, #409eff);
+  text-decoration: none;
+}
+
+.contact-link:hover {
+  text-decoration: underline;
 }
 
 .info-row .edit-input {
@@ -645,5 +779,168 @@ const removeCustomField = (index) => {
   gap: 8px;
   align-items: center;
   margin-bottom: 8px;
+}
+
+.importance-rate {
+  margin-left: 4px;
+}
+
+.importance-value {
+  display: flex;
+  justify-content: flex-end;
+}
+
+.edit-rate {
+  flex: 1;
+  justify-content: flex-end;
+}
+
+.tags-view {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 6px;
+}
+
+.person-tag {
+  margin: 0;
+  border: none;
+}
+
+.tags-empty {
+  color: var(--text-secondary, #999);
+  font-weight: 400;
+}
+
+.tag-select {
+  width: 100%;
+  max-width: 360px;
+}
+
+/* ---------------- 移动端 ---------------- */
+@media (max-width: 768px) {
+  .info-header {
+    padding: 12px 16px;
+    gap: 8px;
+    flex-wrap: wrap;
+  }
+
+  .info-header-left {
+    flex-wrap: wrap;
+    gap: 6px;
+  }
+
+  .info-header-right {
+    margin-left: auto;
+  }
+
+  .person-name {
+    font-size: 17px;
+  }
+
+  .info-body {
+    flex-direction: column;
+    padding: 16px;
+    gap: 18px;
+  }
+
+  /* 大头像（160px 内联尺寸）在窄屏缩小 */
+  .avatar-wrapper {
+    gap: 10px;
+  }
+
+  .main-avatar {
+    --el-avatar-size: 96px !important;
+    border-width: 3px;
+  }
+
+  .deceased-marker {
+    width: 24px;
+    height: 24px;
+    font-size: 11px;
+  }
+
+  .avatar-actions {
+    flex-wrap: wrap;
+    justify-content: center;
+  }
+
+  /* 信息行：标签缩窄、值左对齐，避免重叠 */
+  .info-row {
+    gap: 10px;
+    padding: 9px 0;
+    align-items: flex-start;
+  }
+
+  .info-row .label {
+    width: 64px;
+    font-size: 13px;
+    line-height: 24px;
+  }
+
+  .info-row .value {
+    text-align: left;
+    font-size: 13.5px;
+  }
+
+  .date-value {
+    justify-content: flex-start;
+    flex-wrap: wrap;
+  }
+
+  .importance-value {
+    justify-content: flex-start;
+  }
+
+  .edit-rate {
+    justify-content: flex-start;
+  }
+
+  /* 编辑态控件全部全宽 */
+  .info-row .edit-input {
+    width: 100% !important;
+    flex: 1;
+    min-width: 0;
+    flex-shrink: 1;
+  }
+
+  .birth-edit-group {
+    width: 100%;
+    flex-wrap: wrap;
+  }
+
+  .birth-edit-group .el-date-editor {
+    width: 100% !important;
+    min-width: 0;
+  }
+
+  .info-row .edit-textarea {
+    width: 100%;
+  }
+
+  .tags-view {
+    justify-content: flex-start;
+  }
+
+  .tag-select {
+    max-width: 100%;
+  }
+
+  /* 自定义字段：纵向堆叠 */
+  .custom-fields-view {
+    max-width: 100%;
+    text-align: left;
+  }
+
+  .custom-field-item {
+    justify-content: flex-start;
+  }
+
+  .custom-field-row {
+    display: flex;
+    flex-direction: column;
+    align-items: stretch;
+    gap: 6px;
+  }
 }
 </style>

@@ -13,7 +13,9 @@
       </div>
     </div>
 
-    <div v-loading="loading" class="groups-list">
+    <PageSkeleton v-if="loading && groups.length === 0" variant="groups" />
+
+    <div v-else v-loading="loading" class="groups-list">
       <el-empty v-if="!loading && groups.length === 0" description="暂无分组" />
 
       <GroupCard
@@ -62,6 +64,7 @@ import { getPersons } from '@/api/persons'
 import GroupCard from './components/GroupCard.vue'
 import GroupFormDialog from './components/GroupFormDialog.vue'
 import AddMemberDialog from './components/AddMemberDialog.vue'
+import PageSkeleton from '@/components/PageSkeleton.vue'
 
 const loading = ref(false)
 const groups = ref([])

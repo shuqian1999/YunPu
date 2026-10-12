@@ -11,6 +11,7 @@ router = APIRouter(prefix="/search", tags=["搜索"])
 async def search_persons(
     query: str = Query(..., description="搜索关键词"),
     group_id: Optional[int] = Query(None, description="分组ID"),
+    tag_id: Optional[int] = Query(None, description="标签ID"),
     gender: Optional[int] = Query(None, description="性别"),
     is_alive: Optional[bool] = Query(None, description="是否在世"),
     db: Session = Depends(get_db)
@@ -31,6 +32,13 @@ async def search_persons(
             PersonGroupMember,
             Person.id == PersonGroupMember.person_id
         ).filter(PersonGroupMember.group_id == group_id)
+
+    if tag_id:
+        from app.models.tag import PersonTag
+        persons_query = persons_query.join(
+            PersonTag,
+            Person.id == PersonTag.person_id
+        ).filter(PersonTag.tag_id == tag_id)
     
     if gender is not None:
         if gender == 0:
@@ -46,19 +54,8 @@ async def search_persons(
             persons_query = persons_query.filter(Person.death_date.isnot(None))
     
     persons = persons_query.order_by(Person.created_at.desc()).limit(50).all()
-    
-    return [
-        {
-            "id": person.id,
-            "first_name": person.first_name,
-            "last_name": person.last_name,
-            "nickname": person.nickname,
-            "gender": person.gender,
-            "birth_date": person.birth_date.isoformat() if person.birth_date else None,
-            "is_lunar_birth": person.is_lunar_birth,
-            "death_date": person.death_date.isoformat() if person.death_date else None,
-            "avatar_url": person.avatar_url,
-            "is_me": person.is_me
-        }
-        for person in persons
-    ]
+
+    # 去重（join 多对多关联时同一人物可能出现多次）
+    unique_persons = list({person.id: person for person in persons}.values())
+
+    return [person.to_dict() for person in unique_persons]

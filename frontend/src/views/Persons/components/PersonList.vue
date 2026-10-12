@@ -10,16 +10,34 @@
     >
       <el-table-column type="index" label="#" width="60" align="center" />
 
-      <el-table-column label="姓名" min-width="150">
+      <el-table-column label="姓名" min-width="200">
         <template #default="{ row }">
           <div class="list-name-cell">
-            <el-avatar :size="32" :src="row.avatar_url">
-              {{ row.first_name || row.nickname || '?' }}
-            </el-avatar>
-            <div class="list-name-text">
-              <span class="list-name">{{ row.last_name }}{{ row.first_name }}</span>
-              <span v-if="row.nickname" class="list-nickname">（{{ row.nickname }}）</span>
-              <el-tag v-if="row.is_me" type="primary" size="small" class="list-me-tag">我</el-tag>
+            <PersonAvatar :person="row" :size="32" />
+            <div class="list-name-body">
+              <div class="list-name-text">
+                <span class="list-name">{{ row.last_name }}{{ row.first_name }}</span>
+                <span v-if="row.nickname" class="list-nickname">（{{ row.nickname }}）</span>
+                <el-tag v-if="row.is_me" type="primary" size="small" class="list-me-tag">我</el-tag>
+                <el-rate
+                  v-if="(row.importance || 0) > 0"
+                  :model-value="row.importance || 0"
+                  disabled
+                  size="small"
+                  class="list-rate"
+                />
+              </div>
+              <div v-if="(row.tags || []).length" class="list-tags">
+                <el-tag
+                  v-for="tag in row.tags.slice(0, 4)"
+                  :key="tag.id"
+                  size="small"
+                  effect="dark"
+                  :style="{ backgroundColor: tag.color, borderColor: tag.color }"
+                >
+                  {{ tag.name }}
+                </el-tag>
+              </div>
             </div>
           </div>
         </template>
@@ -79,6 +97,17 @@
         </template>
       </el-table-column>
 
+      <el-table-column label="关注" width="70" align="center">
+        <template #default="{ row }">
+          <FavoriteHeart
+            :person-id="row.id"
+            :model-value="!!row.is_favorite"
+            :size="18"
+            @change="(val) => $emit('favorite-change', { id: row.id, is_favorite: val })"
+          />
+        </template>
+      </el-table-column>
+
       <el-table-column label="操作" width="100" align="center" fixed="right">
         <template #default="{ row }">
           <el-button
@@ -98,6 +127,8 @@
 
 <script setup>
 import { Location, HomeFilled } from '@element-plus/icons-vue'
+import PersonAvatar from '@/components/PersonAvatar.vue'
+import FavoriteHeart from '@/components/FavoriteHeart.vue'
 
 defineProps({
   persons: { type: Array, required: true },
@@ -108,7 +139,7 @@ defineProps({
   formatBirthday: { type: Function, required: true }
 })
 
-defineEmits(['view', 'delete'])
+defineEmits(['view', 'delete', 'favorite-change'])
 </script>
 
 <style scoped>
@@ -134,11 +165,31 @@ defineEmits(['view', 'delete'])
   gap: 10px;
 }
 
+.list-name-body {
+  min-width: 0;
+}
+
 .list-name-text {
   display: flex;
   align-items: center;
   gap: 6px;
   flex-wrap: wrap;
+}
+
+.list-rate {
+  transform: scale(0.8);
+  margin-left: 2px;
+}
+
+.list-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin-top: 4px;
+}
+
+.list-tags .el-tag {
+  margin: 0;
 }
 
 .list-name {

@@ -11,3 +11,7 @@ export const getDashboardEvents = (params = {}) => {
 export const getDashboardReminders = (params = {}) => {
   return request.get('/dashboard/reminders', { params })
 }
+
+export const getDashboardToday = () => {
+  return request.get('/dashboard/today')
+}

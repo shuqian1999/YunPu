@@ -8,7 +8,8 @@
       </el-button>
     </div>
 
-    <div class="detail-content">
+    <!-- key 跟随人物 id：详情页是同一路由组件复用，切换人物时强制各分区重新挂载拉取数据 -->
+    <div class="detail-content" :key="personId">
       <!-- 人物信息卡片 -->
       <PersonInfoCard
         :person-id="personId"
@@ -21,6 +22,12 @@
       <!-- 家庭关系 -->
       <PersonRelations :person-id="personId" />
 
+      <!-- 社会关系 -->
+      <PersonSocialRelations :person-id="personId" />
+
+      <!-- 交往记录 -->
+      <PersonContactRecords :person-id="personId" @refresh="loadSharedData" />
+
       <!-- 事件与提醒（双列） -->
       <div class="events-reminders-grid">
         <PersonEvents :person-id="personId" />
@@ -31,13 +38,15 @@
 </template>
 
 <script setup>
-import { computed, provide } from 'vue'
+import { computed, provide, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { ArrowLeft } from '@element-plus/icons-vue'
 import { usePerson } from './composables/usePerson'
 import PersonInfoCard from './components/PersonInfoCard.vue'
 import PersonGroups from './components/PersonGroups.vue'
 import PersonRelations from './components/PersonRelations.vue'
+import PersonSocialRelations from './components/PersonSocialRelations.vue'
+import PersonContactRecords from './components/PersonContactRecords.vue'
 import PersonEvents from './components/PersonEvents.vue'
 import PersonReminders from './components/PersonReminders.vue'
 
@@ -49,9 +58,15 @@ const personId = computed(() => parseInt(route.params.id))
 const shared = usePerson(personId.value)
 
 // 暴露给模板的刷新方法
-const loadSharedData = () => {
-  shared.loadSharedData()
+const loadSharedData = (id) => {
+  shared.loadSharedData(id ?? personId.value)
 }
+
+// 同一路由组件内切换人物（点击家庭/社会关系人物）：重载共享数据并回到页首
+watch(personId, (newId) => {
+  shared.loadSharedData(newId)
+  window.scrollTo({ top: 0 })
+})
 
 // 通过 provide 共享给子组件
 provide('personShared', {
@@ -108,8 +123,18 @@ const goBack = () => {
 }
 
 @media (max-width: 768px) {
+  .top-nav {
+    padding: 10px 12px 0;
+  }
+
+  .detail-content {
+    padding: 10px 12px 32px;
+  }
+
   .events-reminders-grid {
     grid-template-columns: 1fr;
+    gap: 0;
+    margin-top: 16px;
   }
 }
 </style>

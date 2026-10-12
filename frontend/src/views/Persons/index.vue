@@ -59,6 +59,26 @@
         </el-select>
 
         <el-select
+          v-model="filterTag"
+          placeholder="选择标签"
+          clearable
+          class="filter-select"
+          @change="handleSearch"
+        >
+          <el-option
+            v-for="tag in tags"
+            :key="tag.id"
+            :label="tag.name"
+            :value="tag.id"
+          >
+            <span class="group-option-content">
+              <span class="group-color-indicator" :style="{ backgroundColor: tag.color }"></span>
+              <span class="group-option-name">{{ tag.name }}</span>
+            </span>
+          </el-option>
+        </el-select>
+
+        <el-select
           v-model="filterGender"
           placeholder="性别"
           clearable
@@ -93,8 +113,14 @@
       </div>
     </el-card>
 
+    <!-- 首次加载骨架屏 -->
+    <PageSkeleton
+      v-if="loading && persons.length === 0"
+      :variant="viewMode === 'list' ? 'list' : 'person-grid'"
+    />
+
     <!-- 卡片视图 -->
-    <div v-if="viewMode === 'card'" v-loading="loading" class="persons-grid">
+    <div v-else-if="viewMode === 'card'" v-loading="loading" class="persons-grid">
       <PersonCard
         v-for="person in paginatedPersons"
         :key="person.id"
@@ -105,6 +131,7 @@
         :format-birthday="formatBirthday"
         @view="handleView"
         @delete="handleDelete"
+        @favorite-change="handleFavoriteChange"
       />
       <el-empty v-if="!loading && persons.length === 0" description="暂无人物" />
     </div>
@@ -120,6 +147,7 @@
       :format-birthday="formatBirthday"
       @view="handleView"
       @delete="handleDelete"
+      @favorite-change="handleFavoriteChange"
     />
 
     <el-pagination
@@ -148,9 +176,11 @@ import { Plus, Search, RefreshRight, Grid, List } from '@element-plus/icons-vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { getPersons, deletePerson } from '@/api/persons'
 import { getGroups } from '@/api/groups'
+import { getTags } from '@/api/tags'
 import { searchPersons } from '@/api/search'
 import { getCountries } from '@/api/countries'
 import PersonForm from '@/components/PersonForm.vue'
+import PageSkeleton from '@/components/PageSkeleton.vue'
 import PersonCard from './components/PersonCard.vue'
 import PersonList from './components/PersonList.vue'
 
@@ -159,6 +189,7 @@ const router = useRouter()
 const loading = ref(false)
 const persons = ref([])
 const groups = ref([])
+const tags = ref([])
 const countries = ref({})
 
 const viewMode = ref('card')
@@ -168,6 +199,7 @@ const pageSize = ref(24)
 
 const searchQuery = ref('')
 const filterGroup = ref(null)
+const filterTag = ref(null)
 const filterGender = ref(null)
 const filterIsAlive = ref(null)
 
@@ -181,7 +213,7 @@ const onViewModeChange = (val) => {
 
 watch(viewMode, onViewModeChange)
 
-watch([searchQuery, filterGroup, filterGender, filterIsAlive], () => {
+watch([searchQuery, filterGroup, filterTag, filterGender, filterIsAlive], () => {
   currentPage.value = 1
 })
 
@@ -190,6 +222,14 @@ const loadGroups = async () => {
     groups.value = await getGroups()
   } catch (error) {
     console.error('加载分组失败', error)
+  }
+}
+
+const loadTags = async () => {
+  try {
+    tags.value = await getTags()
+  } catch (error) {
+    console.error('加载标签失败', error)
   }
 }
 
@@ -224,9 +264,10 @@ const formatBirthday = (dateString) => {
 const loadPersons = async () => {
   loading.value = true
   try {
-    if (searchQuery.value || filterGroup.value !== null || filterGender.value !== null || filterIsAlive.value !== null) {
+    if (searchQuery.value || filterGroup.value !== null || filterTag.value !== null || filterGender.value !== null || filterIsAlive.value !== null) {
       const response = await searchPersons(searchQuery.value, {
         group_id: filterGroup.value,
+        tag_id: filterTag.value,
         gender: filterGender.value,
         is_alive: filterIsAlive.value
       })
@@ -245,9 +286,42 @@ const loadPersons = async () => {
   }
 }
 
+// 中文拼音排序（Chrome/Edge 原生 ICU；不支持的环境回退 localeCompare）
+const pinyinCollator = (() => {
+  try {
+    return new Intl.Collator('zh-CN', { sensitivity: 'accent' })
+  } catch {
+    return null
+  }
+})()
+
+const personSortName = (p) =>
+  `${p.last_name || ''}${p.first_name || ''}` || p.nickname || ''
+
+const comparePinyin = (a, b) => {
+  const na = personSortName(a)
+  const nb = personSortName(b)
+  if (pinyinCollator) {
+    const r = pinyinCollator.compare(na, nb)
+    if (r !== 0) return r
+  } else {
+    const r = na.localeCompare(nb, 'zh-CN')
+    if (r !== 0) return r
+  }
+  return a.id - b.id // 同名时按 id 稳定排序
+}
+
+// 「我」永远置顶，其余按姓名拼音；前端全量分页，排序对全部结果生效
+const sortedPersons = computed(() =>
+  [...persons.value].sort((a, b) => {
+    if (!!a.is_me !== !!b.is_me) return a.is_me ? -1 : 1
+    return comparePinyin(a, b)
+  })
+)
+
 const paginatedPersons = computed(() => {
   const start = (currentPage.value - 1) * pageSize.value
-  return persons.value.slice(start, start + pageSize.value)
+  return sortedPersons.value.slice(start, start + pageSize.value)
 })
 
 const handleSearch = () => {
@@ -257,6 +331,7 @@ const handleSearch = () => {
 const handleReset = () => {
   searchQuery.value = ''
   filterGroup.value = null
+  filterTag.value = null
   filterGender.value = null
   filterIsAlive.value = null
   loadPersons()
@@ -269,6 +344,11 @@ const handleCreate = () => {
 
 const handleView = (id) => {
   router.push(`/persons/${id}`)
+}
+
+const handleFavoriteChange = ({ id, is_favorite }) => {
+  const target = persons.value.find(p => p.id === id)
+  if (target) target.is_favorite = is_favorite
 }
 
 const handleDelete = async (id) => {
@@ -328,6 +408,7 @@ const getPersonAgeText = (person) => {
 
 onMounted(() => {
   loadGroups()
+  loadTags()
   loadCountries()
   loadPersons()
 })
@@ -348,6 +429,15 @@ onMounted(() => {
 
 .search-input {
   width: 280px;
+}
+
+@media (max-width: 768px) {
+  .search-input {
+    width: 100%;
+  }
+  .filter-select {
+    width: calc(50% - 6px);
+  }
 }
 
 .filter-select {

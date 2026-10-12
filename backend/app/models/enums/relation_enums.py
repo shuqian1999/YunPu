@@ -19,15 +19,42 @@ class RelationNature(IntEnum):
 
 
 class SpouseRelationType(IntEnum):
-    """配偶关系类型"""
+    """配偶关系类型（仅正式婚姻；男女朋友归社会关系类型「男朋友/女朋友」）"""
     HUSBAND = 0     # 丈夫
     WIFE = 1        # 妻子
     CONCUBINE = 2   # 姨太太/妾
-    BOYFRIEND = 3   # 男朋友
-    GIRLFRIEND = 4  # 女朋友
 
 
 class SpouseRelationNature(IntEnum):
     """配偶关系性质"""
     CURRENT = 0  # 现任
     EX = 1      # 前任
+
+
+# ---------------------------------------------------------------------------
+# 共享展示常量（family_service / relationship_service / API 统一引用，勿各自复制）
+# ---------------------------------------------------------------------------
+
+# 家庭关系性质：单字标签
+NATURE_LABELS = {
+    RelationNature.BIOLOGICAL: "亲",
+    RelationNature.STEP: "继",
+    RelationNature.ADOPTIVE: "养",
+    RelationNature.SWORN: "义",
+    RelationNature.FOSTER: "干",
+}
+
+# 亲子四角色的完整称谓（value -> 称谓）
+FAMILY_ROLE_LABELS = {
+    FamilyRelationType.FATHER: "父亲",
+    FamilyRelationType.MOTHER: "母亲",
+    FamilyRelationType.SON: "儿子",
+    FamilyRelationType.DAUGHTER: "女儿",
+}
+
+# 配偶角色的完整称谓（value -> 称谓，与枚举值对应）
+SPOUSE_ROLE_LABELS = {
+    SpouseRelationType.HUSBAND: "丈夫",
+    SpouseRelationType.WIFE: "妻子",
+    SpouseRelationType.CONCUBINE: "姨太太",
+}

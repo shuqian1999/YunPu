@@ -1,7 +1,9 @@
 from pydantic import BaseModel, Field, model_validator
-from typing import Optional
+from typing import Optional, List
 from datetime import date, datetime
 from fastapi import HTTPException, status
+
+from app.schemas.tag import TagResponse
 
 
 def _validate_name_or_nickname(first_name, last_name, nickname):
@@ -24,11 +26,23 @@ class PersonBase(BaseModel):
     country: Optional[str] = Field(None, max_length=50)
     hometown: Optional[str] = Field(None, max_length=100)
     residence: Optional[str] = Field(None, max_length=100)
+    phone: Optional[str] = Field(None, max_length=50)
+    email: Optional[str] = Field(None, max_length=100)
+    wechat: Optional[str] = Field(None, max_length=50)
+    address: Optional[str] = Field(None, max_length=200)
+    company: Optional[str] = Field(None, max_length=100)
+    occupation: Optional[str] = Field(None, max_length=100)
+    website: Optional[str] = Field(None, max_length=200)
     custom_fields: Optional[dict] = None
     is_me: bool = False
+    is_favorite: bool = False
+    importance: Optional[int] = Field(None, ge=1, le=5)
 
 
 class PersonCreate(PersonBase):
+    # 提交时以"标签名称数组"维护人物标签，后端自动按需创建
+    tag_names: Optional[List[str]] = None
+
     @model_validator(mode="after")
     def check_name_or_nickname(self):
         _validate_name_or_nickname(self.first_name, self.last_name, self.nickname)
@@ -36,15 +50,18 @@ class PersonCreate(PersonBase):
 
 
 class PersonUpdate(PersonBase):
-    @model_validator(mode="after")
-    def check_name_or_nickname(self):
-        _validate_name_or_nickname(self.first_name, self.last_name, self.nickname)
-        return self
+    tag_names: Optional[List[str]] = None
+
+    # 部分更新不强制姓名校验：仅传标签/亲密度等字段时允许省略姓名。
+    # 姓名完整性由创建接口（PersonCreate）与前端表单保证。
 
 
 class PersonResponse(PersonBase):
     id: int
     avatar_url: Optional[str] = None
+    importance: int = 3
+    tags: List[TagResponse] = []
+    last_contact_at: Optional[datetime] = None
     created_at: datetime
     updated_at: Optional[datetime] = None
 

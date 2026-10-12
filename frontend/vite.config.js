@@ -9,6 +9,11 @@ export default defineConfig({
       '@': path.resolve(__dirname, 'src')
     }
   },
+  // 3d-force-graph 体积大且通过动态 import 懒加载，显式纳入预构建，
+  // 避免运行时首次发现依赖触发二次预构建导致 ERR_ABORTED
+  optimizeDeps: {
+    include: ['3d-force-graph']
+  },
   server: {
     host: '0.0.0.0',
     allowedHosts: [

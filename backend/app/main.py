@@ -5,16 +5,19 @@ import os
 
 from app.api.v1 import api_router
 from app.core.config import settings
-from app.core.database import engine, SessionLocal, init_db
+from app.core.database import engine, SessionLocal, init_db, run_lightweight_migrations
 from app.models.base import Base
 from app.models.user import User
 from app.models.person import Person
 from app.models.event import Event
 from app.models.reminder import Reminder
+from app.models.contact_record import ContactRecord
+from app.models.tag import Tag, PersonTag
 from app.models.event_type import EventType
 from app.models.notification import Notification
 from app.models.person_group import PersonGroup, PersonGroupMember
 from app.models.email import EmailConfig, EmailTemplate, EmailLog
+from app.models.social_relation import SocialRelationType, SocialRelation
 from app.core.security import hash_password
 
 # 确保上传目录存在
@@ -36,7 +39,9 @@ app.add_middleware(
 @app.on_event("startup")
 def startup_event():
   Base.metadata.create_all(bind=engine)
-  
+  # 为已存在的表补充新增列（联系人字段、最近联系时间等）
+  run_lightweight_migrations()
+
   # 启动定时任务调度器
   try:
     from app.tasks.scheduler import start_scheduler, reschedule_email_job

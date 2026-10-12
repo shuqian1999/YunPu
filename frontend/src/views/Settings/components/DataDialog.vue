@@ -62,8 +62,8 @@
 </template>
 
 <script setup>
-import { ref, watch } from 'vue'
-import { ElMessage } from 'element-plus'
+import { ref, watch, h } from 'vue'
+import { ElMessage, ElMessageBox } from 'element-plus'
 import { UploadFilled } from '@element-plus/icons-vue'
 import { exportDataJson, exportDataCsv, importDataJson } from '@/api/data'
 
@@ -128,10 +128,27 @@ const handleImport = async () => {
   importing.value = true
   try {
     const result = await importDataJson(selectedFile.value)
-    ElMessage.success(result.message)
     emit('update:visible', false)
     emit('completed')
+    const details = result.skipped_details || []
+    if (details.length) {
+      // 有跳过行：弹窗展示汇总与明细（最多返回前 50 条）
+      const moreHint = result.total_skipped > details.length
+        ? `（仅显示前 ${details.length} 条，共 ${result.total_skipped} 条）` : ''
+      await ElMessageBox.alert(
+        h('div', [
+          h('p', { style: 'margin:0 0 10px' }, result.message + moreHint),
+          h('ul', { style: 'margin:0;padding-left:20px;max-height:300px;overflow:auto;color:var(--el-color-danger)' },
+            details.map(d => h('li', d)))
+        ]),
+        '导入完成（有数据被跳过）',
+        { confirmButtonText: '知道了', customClass: 'import-result-box' }
+      )
+    } else {
+      ElMessage.success(result.message)
+    }
   } catch (error) {
+    if (error === 'cancel' || error === 'close') return
     ElMessage.error(error.response?.data?.detail || '导入失败')
   } finally {
     importing.value = false

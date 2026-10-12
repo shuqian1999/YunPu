@@ -12,13 +12,13 @@
       <div v-else class="relation-list">
         <div
           v-for="rel in relations"
-          :key="rel.person_id"
+          :key="rel.relation_id ?? rel.person_id"
           class="relation-item clickable"
           @click="navigateToPerson(rel.person_id)"
         >
           <div class="relation-main">
-            <span class="relation-item-label" :class="getNatureTagClass(rel.relation_nature)">
-              {{ rel.relation_nature > 0 ? getRelationNatureLabel(rel.relation_nature) : '亲' }}
+            <span class="relation-item-label" :class="getNatureTagClass(rel)">
+              {{ getNatureTagText(rel) }}
             </span>
             <span class="relation-item-separator">·</span>
             <span class="relation-item-label" :class="getRelationTypeClass(rel.relation_name)">
@@ -26,6 +26,23 @@
             </span>
             <span class="relation-item-separator">·</span>
             <span class="relation-item-label relation-person">{{ rel.name }}</span>
+            <span
+              v-if="isSpouseRel(rel) && hasSegmentDate(rel)"
+              class="relation-item-separator"
+            >·</span>
+            <span v-if="isSpouseRel(rel) && hasSegmentDate(rel)" class="relation-segment-date">
+              {{ formatSegmentDate(rel) }}
+            </span>
+          </div>
+          <div
+            v-if="rel.alt_relation_names && rel.alt_relation_names.length"
+            class="relation-alt"
+          >
+            <span
+              v-for="alt in rel.alt_relation_names"
+              :key="alt"
+              class="relation-alt-tag"
+            >亦称：{{ alt }}</span>
           </div>
         </div>
       </div>
@@ -75,6 +92,29 @@
             </el-select>
           </el-form-item>
 
+          <el-form-item v-if="relationForm.relationType === 'spouse'" label="开始日期">
+            <el-date-picker
+              v-model="relationForm.start_date"
+              type="date"
+              value-format="YYYY-MM-DD"
+              placeholder="如结婚日（可选）"
+              style="width: 100%"
+            />
+          </el-form-item>
+
+          <el-form-item
+            v-if="relationForm.relationType === 'spouse' && relationForm.relation_nature === 1"
+            label="结束日期"
+          >
+            <el-date-picker
+              v-model="relationForm.end_date"
+              type="date"
+              value-format="YYYY-MM-DD"
+              placeholder="如离婚日（可选）"
+              style="width: 100%"
+            />
+          </el-form-item>
+
           <el-form-item>
             <div class="relation-preview">
               <strong>{{ getRelationPreview() }}</strong>
@@ -93,14 +133,19 @@
         <div v-else class="existing-relations">
           <div
             v-for="rel in relations"
-            :key="rel.person_id + '-' + rel.relation_type"
+            :key="(rel.relation_id ?? rel.person_id) + '-' + rel.relation_type"
             class="existing-relation-item"
           >
             <div class="relation-info">
               <span class="relation-name">{{ rel.name }}</span>
               <span class="relation-type">{{ rel.relation_name }}</span>
               <span v-if="rel.relation_nature > 0" class="nature-tag secondary">
-                {{ getRelationNatureLabel(rel.relation_nature) }}
+                {{ isSpouseRel(rel)
+                  ? spouseNatureLabels[rel.relation_nature]
+                  : getRelationNatureLabel(rel.relation_nature) }}
+              </span>
+              <span v-if="isSpouseRel(rel) && hasSegmentDate(rel)" class="segment-date">
+                {{ formatSegmentDate(rel) }}
               </span>
             </div>
             <el-button
@@ -149,12 +194,14 @@ const relationForm = reactive({
   relationType: 'family',
   person_b_id: null,
   relation: 0,
-  relation_nature: 0
+  relation_nature: 0,
+  start_date: null,
+  end_date: null
 })
 
 // 关系枚举
 const familyLabels = { 0: '父亲', 1: '母亲', 2: '儿子', 3: '女儿' }
-const spouseLabels = { 0: '丈夫', 1: '妻子', 2: '姨太太', 3: '男朋友', 4: '女朋友' }
+const spouseLabels = { 0: '丈夫', 1: '妻子', 2: '姨太太' }
 const familyNatureLabels = { 0: '亲（血亲）', 1: '继（继亲）', 2: '养（收养）', 3: '义（结义）', 4: '干（干亲）' }
 const spouseNatureLabels = { 0: '现任', 1: '前任' }
 
@@ -166,10 +213,19 @@ const currentNatureLabels = computed(() => {
   return relationForm.relationType === 'family' ? familyNatureLabels : spouseNatureLabels
 })
 
-// 切换关系类型时，重置关系和关系性质
+// 切换关系类型时，重置关系、关系性质与日期段
 watch(() => relationForm.relationType, () => {
   relationForm.relation = 0
   relationForm.relation_nature = 0
+  relationForm.start_date = null
+  relationForm.end_date = null
+})
+
+// 配偶切回"现任"时清空结束日期（现任段不允许有结束日）
+watch(() => relationForm.relation_nature, (val) => {
+  if (relationForm.relationType === 'spouse' && Number(val) === 0) {
+    relationForm.end_date = null
+  }
 })
 
 watch(showEditRelation, (val) => {
@@ -177,6 +233,8 @@ watch(showEditRelation, (val) => {
     relationForm.person_b_id = null
     relationForm.relation = 0
     relationForm.relation_nature = 0
+    relationForm.start_date = null
+    relationForm.end_date = null
   }
 })
 
@@ -194,13 +252,15 @@ const getRelationPreview = () => {
 
   const relation = currentRelationLabels.value[relationForm.relation] || '未知'
   const currentName = currentPerson.nickname || ((currentPerson.last_name || '') + (currentPerson.first_name || ''))
-  return `${personB.name}，是${currentName}的${relation}`
+  // 预览句使用纯姓名，避免把选择器里的「姓名（称呼）」拼接进句子
+  const personBName = personB.fullName || personB.name
+  return `${personBName}，是${currentName}的${relation}`
 }
 
 const getRelationTypeClass = (relationName) => {
   const parentRelations = ['父亲', '母亲', '爸爸', '妈妈']
   const childRelations = ['儿子', '女儿']
-  const spouseRelations = ['丈夫', '妻子', '姨太太', '男朋友', '女朋友']
+  const spouseRelations = ['丈夫', '妻子', '姨太太']
 
   if (parentRelations.includes(relationName)) return 'relation-parent'
   if (childRelations.includes(relationName)) return 'relation-child'
@@ -208,7 +268,21 @@ const getRelationTypeClass = (relationName) => {
   return 'relation-other'
 }
 
-const getNatureTagClass = (nature) => {
+const isSpouseRel = (rel) => typeof rel.relation_type === 'string'
+  && rel.relation_type.startsWith('spouse')
+
+const getNatureTagText = (rel) => {
+  if (isSpouseRel(rel)) {
+    return rel.relation_nature === 1 ? '前' : '现任'
+  }
+  return rel.relation_nature > 0 ? getRelationNatureLabel(rel.relation_nature) : '亲'
+}
+
+const getNatureTagClass = (rel) => {
+  if (isSpouseRel(rel)) {
+    return rel.relation_nature === 1 ? 'relation-nature-step' : 'relation-nature-blood'
+  }
+  const nature = rel.relation_nature
   if (nature === 0) return 'relation-nature-blood'
   if (nature === 1) return 'relation-nature-step'
   if (nature === 2) return 'relation-nature-adopt'
@@ -217,10 +291,18 @@ const getNatureTagClass = (nature) => {
   return 'relation-nature-other'
 }
 
+const hasSegmentDate = (rel) => Boolean(rel.start_date || rel.end_date)
+
+const formatSegmentDate = (rel) => {
+  const s = rel.start_date || '?'
+  const e = rel.end_date || '至今'
+  return `${s} ~ ${e}`
+}
+
 const sortRelations = (rels) => {
   const orderMap = {
     '父亲': 1, '母亲': 1, '爸爸': 1, '妈妈': 1,
-    '丈夫': 2, '妻子': 2, '姨太太': 2, '男朋友': 2, '女朋友': 2,
+    '丈夫': 2, '妻子': 2, '姨太太': 2,
     '儿子': 3, '女儿': 3
   }
 
@@ -268,7 +350,9 @@ const handleAddRelation = async () => {
         relationForm.person_b_id,   // 同上，配偶关系保持对称
         props.personId,
         relationForm.relation,
-        relationForm.relation_nature
+        relationForm.relation_nature,
+        relationForm.start_date,
+        relationForm.end_date
       )
     }
     ElMessage.success('关系添加成功')
@@ -277,9 +361,11 @@ const handleAddRelation = async () => {
     relationForm.person_b_id = null
     relationForm.relation = 0
     relationForm.relation_nature = 0
+    relationForm.start_date = null
+    relationForm.end_date = null
   } catch (error) {
     console.error('添加关系失败:', error)
-    ElMessage.error('添加关系失败')
+    ElMessage.error(error?.response?.data?.detail || '添加关系失败')
   }
 }
 
@@ -291,8 +377,8 @@ const handleDeleteRelation = async (rel) => {
       type: 'warning'
     })
 
-    if (typeof rel.relation_type === 'string' && rel.relation_type.startsWith('spouse')) {
-      await deleteSpouseRelation(props.personId, rel.person_id)
+    if (isSpouseRel(rel)) {
+      await deleteSpouseRelation(props.personId, rel.person_id, rel.relation_id)
     } else {
       await deleteFamilyRelation(props.personId, rel.person_id)
     }
@@ -301,7 +387,7 @@ const handleDeleteRelation = async (rel) => {
   } catch (error) {
     if (error !== 'cancel') {
       console.error('删除关系失败:', error)
-      ElMessage.error('删除关系失败')
+      ElMessage.error(error?.response?.data?.detail || '删除关系失败')
     }
   }
 }
@@ -374,6 +460,32 @@ onMounted(() => {
 .relation-person {
   color: var(--text-primary, #333);
   font-weight: 600;
+}
+
+.relation-segment-date {
+  font-size: 12px;
+  color: var(--text-secondary, #999);
+}
+
+.relation-alt {
+  margin-top: 4px;
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.relation-alt-tag {
+  font-size: 11px;
+  color: #909399;
+  background: rgba(144, 147, 153, 0.1);
+  padding: 1px 8px;
+  border-radius: 10px;
+}
+
+.segment-date {
+  font-size: 12px;
+  color: var(--text-secondary, #999);
+  margin-left: 4px;
 }
 
 .empty {
